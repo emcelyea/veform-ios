@@ -52,13 +52,10 @@ class GenReply {
 
     func start(onMessage: @escaping (_ message: WSUnpackedMessage) -> Void) async -> Void {
         self.onMessage = onMessage
-        print("STARTING GEN REPLY")
         Task {
-            print("CREATING WS TASK")
             self.tewyWebsockets = VeWebsockets()
             self.tewyWebsockets?.delegate = self
             try await self.tewyWebsockets?.openConnection()
-            print("WS CONNECTION OPENED")
         }
     }
 
@@ -83,7 +80,6 @@ class GenReply {
                 genReplySentence += genMessage.body
             }
         case .genReplyEnd:
-            print("GenReply, End: \(genMessage.otherData)")
             self.onMessage?(genMessage)
         case .interrupt:
             print("GenReply, Interrupt: \(message)")
