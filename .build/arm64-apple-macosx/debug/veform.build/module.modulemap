@@ -1,4 +1,0 @@
-module veform {
-    header "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/veform-Swift.h"
-    requires objc
-}
