@@ -1,0 +1,11 @@
+{
+  "": {
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veformTests.build/master.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Tests/veformTests/veformTests.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veformTests.build/veformTests.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veformTests.build/veformTests.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veformTests.build/veformTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veformTests.build/veformTests.swiftdeps"
+  }
+}

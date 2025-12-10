@@ -1,0 +1,71 @@
+{
+  "": {
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/master.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/GenReply.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/GenReply.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/GenReply.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/GenReply~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/GenReply.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/LastRules.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/LastRules.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/LastRules.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/LastRules~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/LastRules.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/RulesReply.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/RulesReply.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/RulesReply.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/RulesReply~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/RulesReply.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/SkipRules.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/SkipRules.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/SkipRules.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/SkipRules~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/SkipRules.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/VeAudio.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeAudio.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeAudio.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeAudio~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeAudio.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/VeConversation.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeConversation.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeConversation.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeConversation~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeConversation.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/VeHttp.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeHttp.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeHttp.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeHttp~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeHttp.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/VeTypes.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeTypes.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeTypes.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeTypes~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeTypes.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/VeWebsockets.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeWebsockets.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeWebsockets.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeWebsockets~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/VeWebsockets.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/YesNoRules.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/YesNoRules.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/YesNoRules.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/YesNoRules~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/YesNoRules.swiftdeps"
+  },
+  "/Users/ericmcelyea/veform-ios/Sources/veform/veform.swift": {
+    "dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/veform.d",
+    "object": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/veform.swift.o",
+    "swiftmodule": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/veform~partial.swiftmodule",
+    "swift-dependencies": "/Users/ericmcelyea/veform-ios/.build/arm64-apple-macosx/debug/veform.build/veform.swiftdeps"
+  }
+}
