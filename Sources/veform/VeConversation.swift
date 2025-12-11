@@ -280,7 +280,7 @@ class VeConversation {
                 addCurrentFieldToHistory()
                 fieldState[currentFieldName]?.visitCount += 1
             }
-            let field = form.fields.first(where: { $0.id == nextFieldId })
+            let field = form.fields.first(where: { $0.name == nextFieldName })
             guard let field = field else {
                 print("Error, tried to move to fieldId \(nextFieldName) but it doesn't exist")
                 return
@@ -319,7 +319,7 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return field.prompts.acknowledgeSkip.randomElement() ?? ""
+            return outputsAcknowledgeSkip.randomElement() ?? ""
         }
 
         if fieldState.last == true {
@@ -331,7 +331,7 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return field.prompts.acknowledgeLast.randomElement() ?? ""
+            return outputsAcknowledgeLast.randomElement() ?? ""
         }
 
         if fieldState.end == true {
@@ -339,12 +339,12 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return field.prompts.acknowledgeEnd.randomElement() ?? ""
+            return outputsAcknowledgeEnd.randomElement() ?? ""
         }
 
         if fieldState.moveToId != nil {
             // TODO: moveto logic and events
-            return field.prompts.acknowledgeSkip.randomElement() ?? ""
+            return outputsAcknowledgeSkip.randomElement() ?? ""
         }
 
         if fieldState.selectOption != nil {
@@ -377,18 +377,18 @@ class VeConversation {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
             if hasBehaviorEnd.count > 0 {
-                return field.prompts.acknowledgeEnd.randomElement() ?? ""
+                return outputsAcknowledgeEnd.randomElement() ?? ""
             }
-            return field.prompts.acknowledgeSuccess.randomElement() ?? ""
+            return outputsAcknowledgeSuccess.randomElement() ?? ""
         }
         if fieldState.valid == false {
             let behaviorOutput = field.eventConfig[.eventInvalidAnswer]?.filter { $0.type == .behaviorOutput } ?? []
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return field.prompts.thinking.randomElement() ?? ""
+            return outputsThinking.randomElement() ?? ""
         }
-        return field.prompts.acknowledgeSuccess.randomElement() ?? ""
+        return outputsAcknowledgeSuccess.randomElement() ?? ""
     }
 
     private func getNextFieldName(fieldName: String) -> String? {
@@ -554,7 +554,7 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return field?.prompts.questionMoveTo.randomElement() ?? ""
+            return "\(outputsMoveToPrefix.randomElement()) \(field?.question ?? "")"
         }
         if fieldState?.valid == false {
             let behaviorOutput = field?.eventConfig[.eventRevisitAfterUnresolved]?
@@ -562,7 +562,7 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return field?.prompts.questionMoveTo.randomElement() ?? ""
+            return "\(outputsMoveToPrefix.randomElement()) \(field?.question ?? "")"
         }
         return field?.question ?? ""
     }

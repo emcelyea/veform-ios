@@ -24,7 +24,9 @@ public enum ConversationAnswerType {
         return nil
     }
 }
-
+// fIX SOME BUGS
+// IMPLEMETN PROMPTS INTERNAL TO THIS STUFF
+// UPDATE GEN & API TO PASS FULL CONVERSATION BACK
 public enum ConversationEvent: String {
     case audioInChunk
     case audioInMessage
@@ -75,36 +77,37 @@ struct Field: Codable {
     // let validation: FieldValidation
     // let eventConfig: FieldEventConfig
     let question: String
-    let eventConfig: FieldEventConfig?
-    let validation: FieldValidation?
-    func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
-        if self.eventConfig?[event] == nil {
-            self.eventConfig?[event] = [behavior]
+    var eventConfig: FieldEventConfig
+    var validation: FieldValidation
+    mutating func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
+        if self.eventConfig[event] == nil {
+            self.eventConfig[event] = [behavior]
         } else {
-            self.eventConfig?[event]?.append(behavior)
+            self.eventConfig[event]?.append(behavior)
         }
     }
+    
     @discardableResult
-    func addSelectOption(label: String, value: String, readAloud: Bool = false) {
-        if self.validation?.selectOptions == nil {
-            self.validation?.selectOptions = [SelectOption()]
+    mutating func addSelectOption(label: String, value: String, readAloud: Bool = false) -> Self {
+        if self.validation.selectOptions == nil {
+            self.validation.selectOptions = [SelectOption(label: label, value: value, readAloud: readAloud)]
         } else {
-            self.validation?.selectOptions?.append(SelectOption())
+            self.validation.selectOptions?.append(SelectOption(label: label, value: value, readAloud: readAloud))
         }
         return self
     }
 
     @discardableResult
-    func addSelectSubject(subject: String) -> Self {
-        self.validation?.selectSubject = subject
+    mutating func addSelectSubject(subject: String) -> Self {
+        self.validation.selectSubject = subject
         return self
     }
 
     @discardableResult
-    func addSelectOptionBehavior(value: String, event: FieldEvent, behavior: FieldBehavior) -> Self {
-        let optionIndex = self.validation?.selectOptions?.firstIndex(where: { $0.value == value })
+    mutating func addSelectOptionBehavior(value: String, behavior: FieldBehavior) -> Self {
+        let optionIndex = self.validation.selectOptions?.firstIndex(where: { $0.value == value })
         if let optionIndex = optionIndex {
-            self.validation?.selectOptions?[optionIndex].addBehavior(event: event, behavior: behavior)
+            self.validation.selectOptions?[optionIndex].addBehavior(behavior: behavior)
         } else {
             print("Select option with value \(value) not found")
         }
@@ -127,8 +130,8 @@ struct Field: Codable {
 }
 
 struct FieldValidation: Codable {
-    let selectOptions: [SelectOption]?
-    let selectSubject: String?
+    var selectOptions: [SelectOption]?
+    var selectSubject: String?
     let maxCharacters: Int?
     let minCharacters: Int?
     let minValue: Double?
@@ -171,14 +174,14 @@ struct FieldValidation: Codable {
 struct SelectOption: Codable {
     let label: String
     let value: String
-    let behaviors: [FieldBehavior]?
+    var behaviors: [FieldBehavior]?
     let readAloud: Bool?
-
-    func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
-        if self.eventConfig?[event] == nil {
-            self.eventConfig?[event] = [behavior]
+ 
+    mutating func addBehavior(behavior: FieldBehavior) {
+        if self.behaviors == nil {
+            self.behaviors = [behavior]
         } else {
-            self.eventConfig?[event]?.append(behavior)
+            self.behaviors?.append(behavior)
         }
     }
     init(label: String, value: String, behaviors: [FieldBehavior]? = nil, readAloud: Bool? = false) {
@@ -266,7 +269,7 @@ struct FieldEventConfig: Codable {
 
 public struct Form: Codable {
     let id: String
-    let fields: [Field]
+    var fields: [Field]
     init(id: String, fields: [Field]) {
         self.id = id
         self.fields = fields

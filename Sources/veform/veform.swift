@@ -70,8 +70,8 @@ public class Veform {
         return conversation.getConversationState()
     }
 
-    public func setFieldState(id: String, state: ConversationStateEntry) {
-        conversation.setFieldState(id: id, state: state)
+    public func setFieldState(name: String, state: ConversationStateEntry) {
+        conversation.setFieldState(name: name, state: state)
     }
 
     public func onEvent(callback: @escaping (ConversationEvent, ConversationStateEntry) -> Void) {
@@ -121,13 +121,11 @@ public class Veform {
         }
         if parentCallback != nil, event != .audioSetup, event != .websocketSetup {
             if !state.setupComplete { return }
-            let stateEntry = conversation.getFieldStateEntry(id: fieldBeforeEvent?.id ?? "")
-            print("preparing to hit parentcallback \(event)")
+            let stateEntry = conversation.getFieldStateEntry(name: fieldBeforeEvent?.name ?? "")
             guard let stateEntry = stateEntry else {
                 print("State entry not found")
                 return
             }
-            print("hit parentcallback with entry \(event) \(stateEntry)")
             DispatchQueue.main.async { [weak self] in
                 print("HITTING PARENT CALLBACK \(event) \(stateEntry)")
                 self?.parentCallback?(event, stateEntry)

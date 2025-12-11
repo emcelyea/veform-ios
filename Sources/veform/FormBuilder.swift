@@ -24,8 +24,8 @@ public class FormBuilder {
         let field = Field(name: name, type: type, root: root, question: question)
         form.fields.append(field)
         if !root {
-            if form.fields[form.fields.count - 1].eventConfig?[.eventValidAnswer]?.contains(where: { $0.type == .behaviorMoveTo }) == false {
-                form.fields[form.fields.count - 1].addBehavior(event:.eventValidAnswer, behavior: FieldBehavior(type: .behaviorMoveTo, moveToFieldIds: [name]))
+            if form.fields[form.fields.count - 1].eventConfig[.eventValidAnswer]?.contains(where: { $0.type == .behaviorMoveTo }) == false {
+                form.fields[form.fields.count - 1].addBehavior(event:.eventValidAnswer, behavior: FieldBehavior(type: .behaviorMoveTo, moveToFieldNames: [name]))
             }
         }
         return field
