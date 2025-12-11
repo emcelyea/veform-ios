@@ -14,7 +14,7 @@ public enum ConversationAnswerType {
     case string(String)
     case double(Double)
 
-      public var stringValue: String? {
+    public var stringValue: String? {
         if case .string(let s) = self { return s }
         return nil
     }
@@ -24,6 +24,7 @@ public enum ConversationAnswerType {
         return nil
     }
 }
+
 public enum ConversationEvent: String {
     case audioInChunk
     case audioInMessage
@@ -82,58 +83,62 @@ public enum FieldTypes: String, Codable {
 struct Field: Codable {
     let name: String
     let type: FieldTypes
-    let prompts: FieldPrompts
-    let validation: FieldValidation
-    let eventConfig: FieldEventConfig
-    let id: String
+    let root: Bool
+    // let validation: FieldValidation
+    // let eventConfig: FieldEventConfig
+    let question: String
+    let eventConfig: FieldEventConfig?
+    let validation: FieldValidation?
+    func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
+        if self.eventConfig?[event] == nil {
+            self.eventConfig?[event] = [behavior]
+        } else {
+            self.eventConfig?[event]?.append(behavior)
+        }
+    }
+    @discardableResult
+    func addSelectOption(label: String, value: String, readAloud: Bool = false) {
+        if self.validation?.selectOptions == nil {
+            self.validation?.selectOptions = [SelectOption()]
+        } else {
+            self.validation?.selectOptions?.append(SelectOption())
+        }
+        return self
+    }
+
+    @discardableResult
+    func addSelectSubject(subject: String) -> Self {
+        self.validation?.selectSubject = subject
+        return self
+    }
+
+    @discardableResult
+    func addSelectOptionBehavior(value: String, event: FieldEvent, behavior: FieldBehavior) -> Self {
+        let optionIndex = self.validation?.selectOptions?.firstIndex(where: { $0.value == value })
+        if let optionIndex = optionIndex {
+            self.validation?.selectOptions?[optionIndex].addBehavior(event: event, behavior: behavior)
+        } else {
+            print("Select option with value \(value) not found")
+        }
+        return self
+    }
+
     init(
         name: String,
         type: FieldTypes,
-        prompts: FieldPrompts,
-        validation: FieldValidation,
-        eventConfig: FieldEventConfig,
-        id: String
+        root: Bool,
+        question: String,
     ) {
         self.name = name
         self.type = type
-        self.prompts = prompts
-        self.validation = validation
-        self.eventConfig = eventConfig
-        self.id = id
+        self.root = root
+        self.question = question
+        self.eventConfig = FieldEventConfig()
+        self.validation = FieldValidation()
     }
 }
-
-struct FieldPrompts: Codable {
-    let question: [String]
-    let questionMoveTo: [String]
-    let thinking: [String]
-    let acknowledgeSuccess: [String]
-    let acknowledgeSkip: [String]
-    let acknowledgeLast: [String]
-    let acknowledgeEnd: [String]
-    init(
-        question: [String],
-        questionMoveTo: [String],
-        thinking: [String],
-        acknowledgeSuccess: [String],
-        acknowledgeSkip: [String],
-        acknowledgeLast: [String],
-        denySkip: [String],
-        acknowledgeEnd: [String]
-    ) {
-        self.question = question // plays when question is asked
-        self.questionMoveTo = questionMoveTo // plays when question is moved back to after start
-        self.thinking = thinking // plays when genReply is initiated
-        self.acknowledgeSuccess = acknowledgeSuccess // plays when users answer is valid
-        self.acknowledgeSkip = acknowledgeSkip // plays when user desire to skip is accepted
-        self.acknowledgeLast = acknowledgeLast // plays when user desire to revisit the last question is accepted
-        self.acknowledgeEnd = acknowledgeEnd // plays when user desire to end the conversation is accepted
-    }
-}
-
 
 struct FieldValidation: Codable {
-    let required: Bool?
     let selectOptions: [SelectOption]?
     let selectSubject: String?
     let maxCharacters: Int?
@@ -147,7 +152,6 @@ struct FieldValidation: Codable {
     let minDateRange: Date?
     let maxDateRange: Date?
     init(
-        required: Bool? = true,
         selectOptions: [SelectOption]? = nil,
         selectSubject: String? = nil,
         maxCharacters: Int? = nil,
@@ -182,6 +186,14 @@ struct SelectOption: Codable {
     let value: String
     let behaviors: [FieldBehavior]?
     let readAloud: Bool?
+
+    func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
+        if self.eventConfig?[event] == nil {
+            self.eventConfig?[event] = [behavior]
+        } else {
+            self.eventConfig?[event]?.append(behavior)
+        }
+    }
     init(label: String, value: String, behaviors: [FieldBehavior]? = nil, readAloud: Bool? = false) {
         self.label = label
         self.value = value
@@ -274,47 +286,3 @@ struct Form: Codable {
     }
 }
 
-func validateFields(_ fields: [Field]) -> Bool {
-    let requiredPrompts = [
-        "question",
-        "thinking",
-        "more_info",
-        "acknowledge_success",
-        "acknowledge_skip",
-        "acknowledge_end",
-    ]
-    for field in fields {
-        let fieldName = field.name ?? ""
-        let fieldType = field.type
-        if fieldName.isEmpty {
-            print("Invalid rules, field name is empty")
-            return false
-        }
-        let fieldPrompts = field.prompts
-        if fieldPrompts.question.isEmpty {
-            print("Invalid rules, question prompt is missing for field: \(fieldName)")
-            return false
-        }
-        if fieldPrompts.thinking.isEmpty {
-            print("Invalid rules, thinking prompt is missing for field: \(fieldName)")
-            return false
-        }
-        if fieldPrompts.questionMoveTo.isEmpty {
-            print("Invalid rules, more_info prompt is missing for field: \(fieldName)")
-            return false
-        }
-        if fieldPrompts.acknowledgeSuccess.isEmpty {
-            print("Invalid rules, acknowledge_success prompt is missing for field: \(fieldName)")
-            return false
-        }
-        if fieldPrompts.acknowledgeSkip.isEmpty {
-            print("Invalid rules, acknowledge_skip prompt is missing for field: \(fieldName)")
-            return false
-        }
-        if fieldPrompts.acknowledgeEnd.isEmpty {
-            print("Invalid rules, acknowledge_end prompt is missing for field: \(fieldName)")
-            return false
-        }
-    }
-    return true
-}

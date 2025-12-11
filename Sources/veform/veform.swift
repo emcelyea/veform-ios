@@ -27,25 +27,15 @@ public class Veform {
     private var parentCompleteCallback: ((ConversationState) -> Void)?
     public init() {}
 
-    public func start(formId _: String) {
-        Task {
-            do {
-                let request = VeHttp()
-                let formData = try await request.getForm(id: "1")
-                guard let form = formData else {
-                    print("Form is nil")
-                    return
-                }
-                self.form = form
-                audio = VeAudio(emitEvent: self.handleEvent)
-                conversation = VeConversation(form: form, emitEvent: self.handleEvent, onComplete: self.end)
-            } catch {
-                print("Error getting form: \(error)")
-            }
-        }
-        print("Done with taks")
+    public func start(form: Form) {
+        self.form = form
+        audio = VeAudio(emitEvent: self.handleEvent)
+        conversation = VeConversation(form: form, emitEvent: self.handleEvent, onComplete: self.end)
+        conversation.start()
     }
-
+    // ok after lunch uhhh, we gotta like start debugging this shit, uhh that might mean making a doper 
+    // test project in this repo or something or can I open both these and swap the 
+    // src around so that it recognizes it?
     public func stop() {
         audio?.stop()
         conversation?.stop()
