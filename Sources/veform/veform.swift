@@ -63,8 +63,7 @@ public class Veform {
             print("Field not found")
             return
         }
-        let id = field.id
-        conversation?.setCurrentField(id: id)
+        conversation?.setCurrentField(name: name)
     }
 
     public func getConversationState() -> ConversationState {

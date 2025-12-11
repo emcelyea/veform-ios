@@ -49,7 +49,7 @@ class GenReply {
     init(form: Form) {
         self.form = form
     }
-
+// fuck gonna need to rework this so it sends the question also balls
     func start(onMessage: @escaping (_ message: WSUnpackedMessage) -> Void) async -> Void {
         self.onMessage = onMessage
         Task {

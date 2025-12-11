@@ -40,27 +40,15 @@ public enum ConversationEvent: String {
     case error
 }
 
-public struct ConversationEvenData {
-    public let fieldId: String
-    public let text: String?
-    public let number: Double?
-    public init(fieldId: String, text: String?, number: Double?) {
-        self.fieldId = fieldId
-        self.text = text
-        self.number = number
-    }
-}
 public struct ConversationStateEntry {
-    public let id: String
-    public let fieldName: String
+    public let name: String
     public let question: String
     public let answer: ConversationAnswerType
     public let type: FieldTypes
     public let valid: Bool
 
-    public init(id: String, fieldName: String, question: String, answer: ConversationAnswerType, type: FieldTypes, valid: Bool) {
-        self.id = id
-        self.fieldName = fieldName
+    public init(name: String, question: String, answer: ConversationAnswerType, type: FieldTypes, valid: Bool) {
+        self.name = name
         self.question = question
         self.answer = answer
         self.type = type
@@ -127,7 +115,7 @@ struct Field: Codable {
         name: String,
         type: FieldTypes,
         root: Bool,
-        question: String,
+        question: String
     ) {
         self.name = name
         self.type = type
@@ -167,7 +155,6 @@ struct FieldValidation: Codable {
     ) {
         self.selectOptions = selectOptions
         self.selectSubject = selectSubject
-        self.required = required
         self.maxCharacters = maxCharacters
         self.minCharacters = minCharacters
         self.minValue = minValue
@@ -229,13 +216,13 @@ enum BehaviorType: String, Codable {
 
 struct FieldBehavior: Codable {
     let type: BehaviorType
-    let moveToFieldIds: [String]?
+    let moveToFieldNames: [String]?
     let resolvesField: Bool?
     let output: String?
     let modifier: FieldEventModifier?
-    init(type: BehaviorType, moveToFieldIds: [String]? = nil, resolvesField: Bool? = true, output: String? = nil, modifier: FieldEventModifier? = nil) {
+    init(type: BehaviorType, moveToFieldNames: [String]? = nil, resolvesField: Bool? = true, output: String? = nil, modifier: FieldEventModifier? = nil) {
         self.type = type
-        self.moveToFieldIds = moveToFieldIds
+        self.moveToFieldNames = moveToFieldNames
         self.resolvesField = resolvesField
         self.output = output
         self.modifier = modifier
@@ -277,7 +264,7 @@ struct FieldEventConfig: Codable {
     }
 }
 
-struct Form: Codable {
+public struct Form: Codable {
     let id: String
     let fields: [Field]
     init(id: String, fields: [Field]) {
