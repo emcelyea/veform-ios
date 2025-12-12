@@ -7,9 +7,6 @@
 
 import Foundation
 
-// #########################################################
-// FORM TYPES AND VALIDATORS THESE SHOULD MATCH types IN TYPES.TS
-// #########################################################
 public enum ConversationAnswerType {
     case string(String)
     case double(Double)
@@ -24,9 +21,7 @@ public enum ConversationAnswerType {
         return nil
     }
 }
-// fIX SOME BUGS
-// IMPLEMETN PROMPTS INTERNAL TO THIS STUFF
-// UPDATE GEN & API TO PASS FULL CONVERSATION BACK
+
 public enum ConversationEvent: String {
     case audioInChunk
     case audioInMessage
@@ -70,7 +65,7 @@ public enum FieldTypes: String, Codable {
     case info
 }
 
-struct Field: Codable {
+public struct Field: Codable {
     let name: String
     let type: FieldTypes
     let root: Bool
@@ -79,7 +74,7 @@ struct Field: Codable {
     let question: String
     var eventConfig: FieldEventConfig
     var validation: FieldValidation
-    mutating func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
+    mutating public func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
         if self.eventConfig[event] == nil {
             self.eventConfig[event] = [behavior]
         } else {
@@ -88,30 +83,27 @@ struct Field: Codable {
     }
     
     @discardableResult
-    mutating func addSelectOption(label: String, value: String, readAloud: Bool = false) -> Self {
+    mutating public func addSelectOption(label: String, value: String, readAloud: Bool = false) {
         if self.validation.selectOptions == nil {
             self.validation.selectOptions = [SelectOption(label: label, value: value, readAloud: readAloud)]
         } else {
             self.validation.selectOptions?.append(SelectOption(label: label, value: value, readAloud: readAloud))
         }
-        return self
     }
 
     @discardableResult
-    mutating func addSelectSubject(subject: String) -> Self {
+    mutating public func addSelectSubject(subject: String){
         self.validation.selectSubject = subject
-        return self
     }
 
     @discardableResult
-    mutating func addSelectOptionBehavior(value: String, behavior: FieldBehavior) -> Self {
+    mutating public func addSelectOptionBehavior(value: String, behavior: FieldBehavior) {
         let optionIndex = self.validation.selectOptions?.firstIndex(where: { $0.value == value })
         if let optionIndex = optionIndex {
             self.validation.selectOptions?[optionIndex].addBehavior(behavior: behavior)
         } else {
             print("Select option with value \(value) not found")
         }
-        return self
     }
 
     init(
@@ -192,7 +184,7 @@ struct SelectOption: Codable {
     }
 }
 
-enum FieldEvent: String, Codable {
+public enum FieldEvent: String, Codable {
     case eventInitialQuestion
     case eventValidAnswer
     case eventInvalidAnswer
@@ -205,11 +197,11 @@ enum FieldEvent: String, Codable {
     case eventRevisitAfterUnresolved
 }
 
-enum FieldEventModifier: String, Codable {
+public enum FieldEventModifier: String, Codable {
     case modifierFieldsUnresolved
 }
 
-enum BehaviorType: String, Codable {
+public enum BehaviorType: String, Codable {
     case behaviorMoveToLast // jump back to question before this one, use to build more complex flows
     case behaviorOutput // output a string
     case behaviorMoveToFirstUnresolved // move to first unresolved field in list
@@ -217,13 +209,13 @@ enum BehaviorType: String, Codable {
     case behaviorEnd // end entire convo
 }
 
-struct FieldBehavior: Codable {
-    let type: BehaviorType
-    let moveToFieldNames: [String]?
-    let resolvesField: Bool?
-    let output: String?
-    let modifier: FieldEventModifier?
-    init(type: BehaviorType, moveToFieldNames: [String]? = nil, resolvesField: Bool? = true, output: String? = nil, modifier: FieldEventModifier? = nil) {
+public struct FieldBehavior: Codable {
+    public let type: BehaviorType
+    public let moveToFieldNames: [String]?
+    public let resolvesField: Bool?
+    public let output: String?
+    public let modifier: FieldEventModifier?
+    public init(type: BehaviorType, moveToFieldNames: [String]? = nil, resolvesField: Bool? = true, output: String? = nil, modifier: FieldEventModifier? = nil) {
         self.type = type
         self.moveToFieldNames = moveToFieldNames
         self.resolvesField = resolvesField
@@ -276,3 +268,6 @@ public struct Form: Codable {
     }
 }
 
+public enum VeformError: Error {
+    case fieldAlreadyExists(name: String)
+}

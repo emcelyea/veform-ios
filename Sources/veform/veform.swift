@@ -58,11 +58,6 @@ public class Veform {
     }
 
     public func setCurrentField(name: String) {
-        let field = form?.fields.first(where: { $0.name == name })
-        guard let field = field else {
-            print("Field not found")
-            return
-        }
         conversation?.setCurrentField(name: name)
     }
 

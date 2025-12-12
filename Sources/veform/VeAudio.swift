@@ -60,7 +60,7 @@ class VeAudio: NSObject {
             }
             configureAudioSession()
             emitEvent(.audioSetup, nil)
-            try? startListening()
+            startListening()
         }
     }
 

@@ -18,7 +18,7 @@ enum SERVER_TO_CLIENT_MESSAGES: String, Codable {
     case error = "ERROR"
 }
 
-public enum CLIENT_TO_SERVER_MESSAGES: String {
+public enum CLIENT_TO_SERVER_MESSAGES: String, Codable {
     case setupForm = "SETUP_FORM"
     case genReplyRequest = "GEN_REPLY_REQUEST"
 }
@@ -29,6 +29,7 @@ enum WebSocketState {
     case connected
     case disconnecting
 }
+
 struct WebSocketClientMessage<T: Codable>: Codable {
     let type: CLIENT_TO_SERVER_MESSAGES
     let sessionId: String
@@ -40,7 +41,7 @@ struct WebSocketServerMessage: Codable {
     let sessionId: String?
     let genRequestId: String?
     let fieldName: String?
-    let data: String?
+    var data: String?
     let valid: Bool?
     let skip: Bool?
     let last: Bool?
@@ -50,11 +51,11 @@ struct WebSocketServerMessage: Codable {
     let validNo: Bool?
     let number: Double?
     let selectOption: String?
-    let selectOptions: [String]?
+    let selectOptions: String?
 }
 
 let urlWs = "wss://5f064a7cf2b8.ngrok-free.app"
-internal class VeWebsockets: ObservableObject {
+class VeWebsockets: ObservableObject {
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private let url: URL
@@ -64,8 +65,8 @@ internal class VeWebsockets: ObservableObject {
     weak var delegate: TewyWebsocketsDelegate?
     var sessionId: String?
     init() {
-        self.url = URL(string: urlWs + "/conversation")!
-        print("WebSocket URL: \(self.url)")
+        url = URL(string: urlWs + "/conversation")!
+        print("WebSocket URL: \(url)")
         setupURLSession()
     }
 
@@ -125,22 +126,22 @@ internal class VeWebsockets: ObservableObject {
     }
 
     func sendJSON<T: Codable>(type: CLIENT_TO_SERVER_MESSAGES, data: T) {
-        guard let sessionId = self.sessionId else {
-           print("WS sendMessage, No session id, message: \(input)")
-           return
-       }
+        guard let sessionId = sessionId else {
+            print("WS sendMessage, No session id")
+            return
+        }
         guard state == .connected else {
             let error = WebSocketError.notConnected
             print("WS sendmessage while not connected: \(error)")
             return
         }
-        let message = WebSocketClientMessage(type: type, sessionId: sessionId, data: data)
 
         do {
-            let jsonData = try JSONEncoder().encode(object)
+            let message = WebSocketClientMessage(type: type, sessionId: sessionId, data: data)
+            let jsonData = try JSONEncoder().encode(message)
             let jsonString = String(data: jsonData, encoding: .utf8) ?? ""
-            let message = URLSessionWebSocketTask.Message.string(jsonString)
-            webSocketTask?.send(message) { [weak self] error in
+            let messageJson = URLSessionWebSocketTask.Message.string(jsonString)
+            webSocketTask?.send(messageJson) { [weak self] error in
                 if let error = error, let self = self {
                     self.delegate?.webSocket(self, didEncounterError: error)
                 }
@@ -170,31 +171,39 @@ internal class VeWebsockets: ObservableObject {
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
         switch message {
         case let .string(text):
-            if self.state == .connecting {
+            if state == .connecting {
                 print("setting to connected")
-                self.state = .connected
-                self.delegate?.webSocketDidConnect(self)
-                self.connectionCompletion?(.success(()))
-                self.connectionCompletion = nil
+                state = .connected
+                delegate?.webSocketDidConnect(self)
+                connectionCompletion?(.success(()))
+                connectionCompletion = nil
             }
-            let serverMessage = try JSONDecoder().decode(WebSocketServerMessage.self, from: text.data(using: .utf8)!)
-            if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.SESSION_ID {
-                self.sessionId = serverMessage.sessionId
+            do {
+                let serverMessage = try JSONDecoder().decode(WebSocketServerMessage.self, from: text.data(using: .utf8)!)
+                if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.sessionId {
+                    sessionId = serverMessage.sessionId
+                    return
+                }
+                if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.sessionNotFound {
+                    print("WS: Session not found \(serverMessage.data ?? "No data")")
+                    return
+                }
+                if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.error {
+                    print("WS: Error: \(serverMessage.data ?? "No data")")
+                    return
+                }
+                if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.interrupt {
+                    print("WS: Interrupt \(serverMessage.data ?? "No data")")
+                    return
+                }
+                delegate?.webSocket(self, didReceiveMessage: serverMessage)
+            } catch {
+                print("WS: Error decoding message: \(error)")
                 return
             }
-            if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.SESSION_NOT_FOUND {
-                print("WS: Session not found \(serverMessage.data)")
-                return
-            }
-            if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.ERROR {
-                print("WS: Error: \(serverMessage.data)")
-                return
-            }
-            if serverMessage.type == SERVER_TO_CLIENT_MESSAGES.INTERRUPT {
-                print("WS: Interrupt \(serverMessage.data)")
-                return
-            }
-            self.delegate?.webSocket(self, didReceiveMessage: serverMessage)
+        case let .data(data):
+            print("WS: Data message received \(data.count)")
+            return
         @unknown default:
             print("WS: Unknown message type received")
         }

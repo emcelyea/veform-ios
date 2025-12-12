@@ -22,7 +22,6 @@ struct YesNoReply {
 }
 func getYesNoReply(sentiment: Double?, lemmas: [String], field _: Field, threshold: Double = 0.6) -> YesNoReply {
     let sentimentWeight = 0.3
-    let matchWeight = 0.7
     var noScore = 0.0
     var yesScore = 0.0
     let strongYesMatches = fuzzyMatch(lemmas: lemmas, expected: strongYes)

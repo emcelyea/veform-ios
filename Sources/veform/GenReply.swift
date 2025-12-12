@@ -27,28 +27,29 @@ class GenReply {
     }
 
     func handleMessage(message: WebSocketServerMessage) {
-        if message.type == SERVER_TO_CLIENT_MESSAGES.GEN_REPLY_START {
+        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyStart {
             onMessage?(message)
         }
-        if message.type == SERVER_TO_CLIENT_MESSAGES.GEN_REPLY_CHUNK {
-             if let lastChar = genMessage.body.last,
+        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyChunk {
+             if let lastChar = message.data?.last,
                punctuationCharacters.contains(String(lastChar))
             {
-                genReplySentence += genMessage.body
-                genMessage.body = genReplySentence
-                onMessage?(genMessage)
+                genReplySentence += message.data ?? ""
+                var parentMessage = message
+                parentMessage.data = genReplySentence
+                onMessage?(parentMessage)
                 genReplySentence = ""
             } else {
-                genReplySentence += genMessage.body
+                genReplySentence += message.data ?? ""
             }
         }
-        if message.type == SERVER_TO_CLIENT_MESSAGES.GEN_REPLY_END {
+        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyEnd {
             onMessage?(message)
         }
     }
 
    func sendMessage<T: Codable>(type: CLIENT_TO_SERVER_MESSAGES, data: T) -> Void {
-       self.tewyWebsockets?.sendJSON(type, data)
+       self.tewyWebsockets?.sendJSON(type:type, data:data)
    }
 }
 
@@ -61,7 +62,7 @@ extension GenReply: TewyWebsocketsDelegate {
         print("Disconnected")
     }
 
-    func webSocket(_: VeWebsockets, didReceiveMessage message: String) {
+    func webSocket(_: VeWebsockets, didReceiveMessage message: WebSocketServerMessage) {
         handleMessage(message: message)
     }
 

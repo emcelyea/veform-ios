@@ -85,7 +85,7 @@ class VeConversation {
         Task {
             await genReply.start(onMessage: self.genReplyMessageReceived)
             emitEvent(.websocketSetup, nil)
-            await genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.SETUP_FORM, data: form)
+            genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.setupForm, data: form)
         }
     }
 
@@ -126,6 +126,11 @@ class VeConversation {
     }
 
     func setCurrentField(name: String) {
+        let field = form.fields.first(where: { $0.name == name })
+        if field == nil {
+            print("Error, field \(name) not found")
+            return
+        }
         fieldState[currentFieldName]?.moveToId = name
         moveToNextField()
     }
@@ -324,7 +329,7 @@ class VeConversation {
                 addCurrentFieldToFieldHistory(input: input, genReply: nil)
                 emitEvent(.genReplyRequestStart, nil)
                 let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
-                genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.GEN_REPLY_REQUEST, data: GenReplyRequest(fieldName: field.name, fieldHistory: fieldHistory))
+                genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.genReplyRequest, data: GenReplyRequest(fieldName: currentFieldName, fieldHistory: fieldHistory))
             }
         }
     }
@@ -422,15 +427,15 @@ class VeConversation {
             }
             let currentFieldIndex = form.fields.firstIndex(where: { $0.name == currentFieldName })
             if let currentFieldIndex = currentFieldIndex, currentFieldIndex < form.fields.count - 1 {
-                return form.fields[currentFieldIndex + 1].id
+                return form.fields[currentFieldIndex + 1].name
             }
             return nil
         }
         if fieldState.last == true {
-            print("last requested, visitHistory: \(visitHistory.count) \(visitHistory.last)")
+            print("last requested, visitHistory: \(visitHistory.count) \(visitHistory.last?.name ?? "")")
             if visitHistory.count > 0 {
-                let lastFieldName = visitHistory.last?.fieldName
-                print("last fieldName: \(lastFieldName)")
+                let lastFieldName = visitHistory.last?.name
+                print("last fieldName: \(lastFieldName ?? "")")
                 return lastFieldName
             }
             return currentFieldName
@@ -473,7 +478,7 @@ class VeConversation {
         }
         let currentFieldIndex = form.fields.firstIndex(where: { $0.name == currentFieldName })
         if let currentFieldIndex = currentFieldIndex, currentFieldIndex < form.fields.count - 1 {
-            return form.fields[currentFieldIndex + 1].id
+            return form.fields[currentFieldIndex + 1].name
         }
         return nil
     }
@@ -484,14 +489,13 @@ class VeConversation {
         if moveToEvents.count == 0 {
             return nil
         }
-        var priorityEvent = moveToEvents[0]
         let modifierEvents = moveToEvents.filter { $0.modifier != nil }
         for event in modifierEvents {
             if modifierIsTrue(modifier: event.modifier!) {
                 return event
             }
         }
-        return priorityEvent
+        return moveToEvents[0]
     }
 
     private func modifierIsTrue(modifier: FieldEventModifier) -> Bool {
@@ -499,31 +503,30 @@ class VeConversation {
         case .modifierFieldsUnresolved:
             return false
         }
-        return false
     }
 
-    private func genReplyMessageReceived(message: WSUnpackedMessage) {
+    private func genReplyMessageReceived(message: WebSocketServerMessage) {
         // chunk gen reply contents into sentences and pipe to output
         if message.type == .genReplyStart {
             return
         }
         if message.type == .genReplyEnd {
             emitEvent(.genReplyRequestEnd, nil)
-            let field = form.fields.first(where: { $0.id == currentFieldId })
-            fieldState[currentFieldName]?.valid = message.otherData?["valid"] == "true" ? true : false
-            fieldState[currentFieldName]?.skip = message.otherData?["skip"] == "true" ? true : false
-            fieldState[currentFieldName]?.last = message.otherData?["last"] == "true" ? true : false
-            fieldState[currentFieldName]?.end = message.otherData?["end"] == "true" ? true : false
-            fieldState[currentFieldName]?.moveToId = message.otherData?["moveToId"] ?? nil
-            fieldState[currentFieldName]?.validYes = message.otherData?["validyes"] == "true" ? true : false
-            fieldState[currentFieldName]?.validNo = message.otherData?["validno"] == "true" ? true : false
+            let field = form.fields.first(where: { $0.name == currentFieldName })
+            fieldState[currentFieldName]?.valid = message.valid == true ? true : false
+            fieldState[currentFieldName]?.skip = message.skip == true ? true : false
+            fieldState[currentFieldName]?.last = message.last == true ? true : false
+            fieldState[currentFieldName]?.end = message.end == true ? true : false
+            fieldState[currentFieldName]?.moveToId = message.moveToId ?? nil
+            fieldState[currentFieldName]?.validYes = message.validYes == true ? true : false
+            fieldState[currentFieldName]?.validNo = message.validNo == true ? true : false
 
-            if let numberString = message.otherData?["number"] {
+            if let numberString = message.number {
                 fieldState[currentFieldName]?.number = Double(numberString)
             } else {
                 fieldState[currentFieldName]?.number = nil
             }
-            if let optionValue = message.otherData?["option"] {
+            if let optionValue = message.selectOption {
                 let selectedOption = field?.validation.selectOptions?.first(where: { $0.value == optionValue })
                 if let selectedOption = selectedOption {
                     fieldState[currentFieldName]?.selectOption = selectedOption
@@ -531,7 +534,7 @@ class VeConversation {
                     fieldState[currentFieldName]?.valid = false
                 }
             }
-            if let options = message.otherData?["options"] {
+            if let options = message.selectOptions {
                 let optionArray = options.split(separator: ",")
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 let selectedOptions = field?.validation.selectOptions?.filter { option in
@@ -544,12 +547,12 @@ class VeConversation {
                 }
             }
             addCurrentFieldToVisitHistory()
-            addCurrentFieldToFieldHistory(input: nil, genReply: message.body)
+            addCurrentFieldToFieldHistory(input: nil, genReply: message.data)
             moveToNextField()
             return
         }
-        print("Outputting Gen sentence: \(message.body)")
-        emitEvent(.audioOutMessage, message.body)
+        print("Outputting Gen sentence: \(message.data ?? "No data")")
+        emitEvent(.audioOutMessage, message.data ?? "")
     }
 
     private func getFieldQuestion(fieldName: String) -> String {
@@ -560,7 +563,7 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return field?.question
+            return field?.question ?? ""
         }
         if fieldState?.valid == true {
             let behaviorOutput = field?.eventConfig[.eventRevisitAfterResolved]?
@@ -568,7 +571,7 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return "\(outputsMoveToPrefix.randomElement()) \(field?.question ?? "")"
+            return "\(outputsMoveToPrefix.randomElement() ?? "") \(field?.question ?? "")"
         }
         if fieldState?.valid == false {
             let behaviorOutput = field?.eventConfig[.eventRevisitAfterUnresolved]?
@@ -576,13 +579,12 @@ class VeConversation {
             if behaviorOutput.count > 0 {
                 return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
             }
-            return "\(outputsMoveToPrefix.randomElement()) \(field?.question ?? "")"
+            return "\(outputsMoveToPrefix.randomElement() ?? "") \(field?.question ?? "")"
         }
         return field?.question ?? ""
     }
 
     private func getFieldQuestionAppend(fieldName: String) -> String {
-        let fieldState = fieldState[fieldName]
         let field = form.fields.first(where: { $0.name == fieldName })
         let selectOptionList = field?.validation.selectOptions?.filter { $0.readAloud == true }.map { $0.label } ?? []
         let selectOptionListAppend = selectOptionList
@@ -591,6 +593,7 @@ class VeConversation {
     }
 
     private func addCurrentFieldToFieldHistory(input: String?, genReply: String?) {
+        let field = form.fields.first(where: {$0.name == currentFieldName})
         fieldHistory.append(FieldHistory(
             name: fieldState[currentFieldName]!.name,
             type: field?.type ?? .textarea,
@@ -618,19 +621,15 @@ class VeConversation {
     private func moveToAnyIncompleteField(root: String?) -> Bool? {
         var fieldName = root
         var previousFieldName = root
-        while fieldName != nil {
-            guard let fieldName = fieldName else {
-                return nil
-            }
-            print("Testing fieldName: \(fieldName) valid: \(fieldState[fieldName]?.valid)")
-            if fieldState[fieldName]?.valid == false {
+        while let currentField = fieldName {
+            if fieldState[currentField]?.valid == false {
                 currentFieldName = previousFieldName ?? currentFieldName
                 emitEvent(.audioOutMessage, "Looks like we have a required question we need to revisit")
                 moveToNextField(noVisit: true, traversing: true)
                 return true
             }
-            previousFieldName = fieldName
-            fieldName = getNextFieldName(fieldName: fieldName ?? "")
+            previousFieldName = currentField
+            fieldName = getNextFieldName(fieldName: currentField)
         }
         return nil
     }
@@ -639,19 +638,19 @@ class VeConversation {
         // start at initialField
         var fieldName: String? = initialFieldName
         var completeEntries: [ConversationStateEntry] = []
-        while let fieldName = fieldName {
-            let field = form.fields.first(where: { $0.name == fieldName })
+        while let currentField = fieldName {
+            let field = form.fields.first(where: { $0.name == currentField })
             if field?.type != .info {
-                let answer = getAnswerFromFieldState(fieldState: fieldState[fieldName]!, field: field!)
+                let answer = getAnswerFromFieldState(fieldState: fieldState[currentField]!, field: field!)
                 completeEntries.append(ConversationStateEntry(
-                    name: fieldName,
+                    name: currentField,
                     question: field?.question ?? "",
                     answer: answer,
                     type: field?.type ?? .textarea,
                     valid: true
                 ))
             }
-            fieldName = getNextFieldName(fieldName: fieldName ?? "")
+            fieldName = getNextFieldName(fieldName: currentField)
         }
         return completeEntries
     }
@@ -662,7 +661,7 @@ class VeConversation {
             let answer = getAnswerFromFieldState(fieldState: fieldState[field.name]!, field: field)
             conversationState.append(ConversationStateEntry(
                 name: field.name,
-                question: field.question ?? "",
+                question: field.question,
                 answer: answer,
                 type: field.type,
                 valid: fieldState[field.name]!.valid
