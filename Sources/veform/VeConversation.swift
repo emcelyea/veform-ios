@@ -3,7 +3,11 @@ import Foundation
 TOMORROW READ THIS YOU FUCKING BLOCKHEAD MORON
 
 */
-struct FieldHistory {
+struct GenReplyRequest: Codable {
+    let fieldName: String
+    let fieldHistory: [FieldHistory]
+}
+struct FieldHistory: Codable {
     var name: String
     var type: FieldTypes
     var valid: Bool
@@ -81,6 +85,7 @@ class VeConversation {
         Task {
             await genReply.start(onMessage: self.genReplyMessageReceived)
             emitEvent(.websocketSetup, nil)
+            await genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.SETUP_FORM, data: form)
         }
     }
 
@@ -319,7 +324,7 @@ class VeConversation {
                 addCurrentFieldToFieldHistory(input: input, genReply: nil)
                 emitEvent(.genReplyRequestStart, nil)
                 let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
-                genReply.sendGenReplyRequest(question: field.question, fieldHistory: fieldHistory)
+                genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.GEN_REPLY_REQUEST, data: GenReplyRequest(fieldName: field.name, fieldHistory: fieldHistory))
             }
         }
     }
