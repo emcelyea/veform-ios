@@ -1,5 +1,15 @@
 import Foundation
+/*
+TOMORROW READ THIS YOU FUCKING BLOCKHEAD MORON
 
+*/
+struct FieldHistory {
+    var name: String
+    var type: FieldTypes
+    var valid: Bool
+    var answer: String?
+    var genReply: String?
+}
 struct FieldState {
     var name: String
     var valid: Bool
@@ -53,6 +63,7 @@ class VeConversation {
     private var initialFieldName: String
     private var fieldState: [String: FieldState] = [:]
     private var visitHistory: [FieldState] = []
+    private var fieldHistory: [FieldHistory] = []
     init(
         form: Form,
         emitEvent: @escaping (ConversationEvent, String?) -> Void,
@@ -78,7 +89,6 @@ class VeConversation {
         let initialQuestionAppend: String = getFieldQuestionAppend(fieldName: currentFieldName)
         print("Initial question: \(initialQuestion + initialQuestionAppend)")
         emitEvent(.audioOutMessage, initialQuestion + initialQuestionAppend)
-        logMessage(type: .initialQuestion, fieldName: currentFieldName, message: initialQuestion + initialQuestionAppend)
     }
 
     func stop() {
@@ -256,7 +266,7 @@ class VeConversation {
 
     private func endForm() {
         print("Ending form")
-        addCurrentFieldToHistory()
+        addCurrentFieldToVisitHistory()
         // if we say moveTo
         print("Testing incomplete fields")
         if moveToAnyIncompleteField(root: initialFieldName) != nil {
@@ -277,7 +287,8 @@ class VeConversation {
             }
 
             if !noVisit {
-                addCurrentFieldToHistory()
+                addCurrentFieldToVisitHistory()
+                addCurrentFieldToFieldHistory(input: input, genReply: nil)
                 fieldState[currentFieldName]?.visitCount += 1
             }
             let field = form.fields.first(where: { $0.name == nextFieldName })
@@ -303,11 +314,12 @@ class VeConversation {
                 fieldState[nextFieldName]?.valid = true
                 moveToNextField()
             }
-            // fieldState is bad, ask llm
         } else {
             if let input = input {
+                addCurrentFieldToFieldHistory(input: input, genReply: nil)
                 emitEvent(.genReplyRequestStart, nil)
-                genReply.sendMessage(fieldName: currentFieldName, type: .genReplyRequest, input: input)
+                let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
+                genReply.sendGenReplyRequest(question: field.question, fieldHistory: fieldHistory)
             }
         }
     }
@@ -526,16 +538,13 @@ class VeConversation {
                     fieldState[currentFieldName]?.valid = false
                 }
             }
-
+            addCurrentFieldToVisitHistory()
+            addCurrentFieldToFieldHistory(input: nil, genReply: message.body)
             moveToNextField()
             return
         }
         print("Outputting Gen sentence: \(message.body)")
         emitEvent(.audioOutMessage, message.body)
-    }
-
-    private func logMessage(type: CLIENT_TO_SERVER_MESSAGES, fieldName: String, message: String) {
-        genReply.sendMessage(fieldName: fieldName, type: type, input: message)
     }
 
     private func getFieldQuestion(fieldName: String) -> String {
@@ -576,16 +585,28 @@ class VeConversation {
         return selectOptionListAppend
     }
 
-    // this gets run at the end of a field processing, so should contain
-    // state of input response and what not
-    private func addCurrentFieldToHistory() {
+    private func addCurrentFieldToFieldHistory(input: String?, genReply: String?) {
+        fieldHistory.append(FieldHistory(
+            name: fieldState[currentFieldName]!.name,
+            type: field?.type ?? .textarea,
+            valid: fieldState[currentFieldName]!.valid,
+            answer: input,
+            genReply: genReply
+        ))
+    }
+
+    private func addCurrentFieldToVisitHistory() {
         visitHistory.append(FieldState(
             name: fieldState[currentFieldName]!.name,
             valid: fieldState[currentFieldName]!.valid,
             visitCount: fieldState[currentFieldName]!.visitCount,
             validYes: fieldState[currentFieldName]!.validYes,
             validNo: fieldState[currentFieldName]!.validNo,
-            selectOption: fieldState[currentFieldName]!.selectOption
+            selectOption: fieldState[currentFieldName]!.selectOption,
+            skip: fieldState[currentFieldName]!.skip,
+            last: fieldState[currentFieldName]!.last,
+            end: fieldState[currentFieldName]!.end,
+            moveToId: fieldState[currentFieldName]!.moveToId
         ))
     }
 

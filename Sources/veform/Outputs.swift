@@ -6,12 +6,6 @@
 //
 
 import Foundation
-/*      questionMoveTo: ["Ok back to: How good was your diet today 1 to 10?"],
-      thinking: ["Let me see."],
-      acknowledgeSuccess: ["Thanks for sharing that."],
-      acknowledgeSkip: ["Alright, skipping that."],
-      acknowledgeEnd: ["Ending the conversation, thanks."],
-      acknowledgeLast: ["Going back to the last question"],*/
 
 
 let outputsThinking = [

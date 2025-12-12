@@ -26,7 +26,7 @@ public enum CLIENT_TO_SERVER_MESSAGES: String {
     case userMoveTo = "USER_MOVE_TO"
     case userSkip = "USER_SKIP"
     case userEnd = "USER_END"
- }
+}
 
 struct GenReplyMessage {
     let type: SERVER_TO_CLIENT_MESSAGES
@@ -49,8 +49,9 @@ class GenReply {
     init(form: Form) {
         self.form = form
     }
-// fuck gonna need to rework this so it sends the question also balls
-    func start(onMessage: @escaping (_ message: WSUnpackedMessage) -> Void) async -> Void {
+
+    // fuck gonna need to rework this so it sends the question also balls
+    func start(onMessage: @escaping (_ message: WSUnpackedMessage) -> Void) async {
         self.onMessage = onMessage
         Task {
             self.tewyWebsockets = VeWebsockets()
@@ -59,63 +60,79 @@ class GenReply {
         }
     }
 
-    func handleMessage(message: String?) -> Void {
+    func handleMessage(message: String?) {
         var genMessage = unpackMessage(message ?? "")
         switch genMessage.type {
         case .sessionId:
-            self.sessionId = genMessage.sessionId
+            sessionId = genMessage.sessionId
         case .sessionNotFound:
             print("GenRpelys, Session not found")
         case .genReplyStart:
-            self.onMessage?(genMessage)
+            onMessage?(genMessage)
         case .genReplyChunk:
-              if let lastChar = genMessage.body.last,
+            if let lastChar = genMessage.body.last,
                punctuationCharacters.contains(String(lastChar))
             {
                 genReplySentence += genMessage.body
                 genMessage.body = genReplySentence
-                self.onMessage?(genMessage)
+                onMessage?(genMessage)
                 genReplySentence = ""
             } else {
                 genReplySentence += genMessage.body
             }
         case .genReplyEnd:
-            self.onMessage?(genMessage)
+            onMessage?(genMessage)
         case .interrupt:
-            print("GenReply, Interrupt: \(message)")
+            print("GenReply, Interrupt")
         case .error:
-            print("GenReply, Error: \(message)")
+            print("GenReply, Error")
         default:
-            print("GenReply, Unknown message type: \(message)")
+            print("GenReply, Unknown message type")
         }
     }
 
-    func sendMessage(fieldId: String, type: CLIENT_TO_SERVER_MESSAGES, input: String) -> Void {
-        guard let sessionId = self.sessionId else {
-            print("WS sendMessage, No session id, message: \(input)")
+//    func sendMessage(fieldId: String, type: CLIENT_TO_SERVER_MESSAGES, input: String) -> Void {
+//        guard let sessionId = self.sessionId else {
+//            print("WS sendMessage, No session id, message: \(input)")
+//            return
+//        }
+//        let message = packMessage(type:type, sessionId: sessionId, fieldId: fieldId, message: input)
+//        self.tewyWebsockets?.sendMessage(message)
+//    }
+
+    func sendGenReplyRequest(question: String, fieldHistory: [FieldHistory]) {
+        guard let sessionId = sessionId else {
+            print("WS sendMessage, No session id, message")
             return
         }
-        let message = packMessage(type:type, sessionId: sessionId, fieldId: fieldId, message: input)
-        self.tewyWebsockets?.sendMessage(message)
+        let name = fieldHistory.first?.name ?? ""
+        let header = packMessageHeader(data: [
+            "type": CLIENT_TO_SERVER_MESSAGES.genReplyRequest.rawValue,
+            "sessionId": sessionId,
+            "question": question,
+            "name": name
+        ])
+        let message = fieldHistory.map { $0.answer != nil ? "|user:|\($0.answer!)" : "|gen:|\($0.genReply ?? "")" ?? "" }.joined(separator: "\n")
+        tewyWebsockets?.sendMessage("\(header)\n\(message)")
     }
 }
 
 extension GenReply: TewyWebsocketsDelegate {
-    func webSocketDidConnect(_ webSocket: VeWebsockets) {
+    func webSocketDidConnect(_: VeWebsockets) {
         print("Connected!")
-        self.connected = true
+        connected = true
     }
-    
-    func webSocketDidDisconnect(_ webSocket: VeWebsockets) {
+
+    func webSocketDidDisconnect(_: VeWebsockets) {
         print("Disconnected")
-        self.connected = false
+        connected = false
     }
-    
-    func webSocket(_ webSocket: VeWebsockets, didReceiveMessage message: String) {
+
+    func webSocket(_: VeWebsockets, didReceiveMessage message: String) {
         handleMessage(message: message)
     }
-    
-    func webSocket(_ webSocket: VeWebsockets, didEncounterError error: Error) {
+
+    func webSocket(_: VeWebsockets, didEncounterError error: Error) {
         print("Error: \(error)")
     }
 }
@@ -141,20 +158,20 @@ func unpackMessage(_ message: String) -> WSUnpackedMessage {
             body: ""
         )
     }
-    
+
     let header = components[0]
     let body = components.dropFirst().joined(separator: "\n")
-    
+
     let headerParts = header.components(separatedBy: "|")
-    
+
     let type = headerParts
         .first(where: { $0.hasPrefix("type:") })?
         .components(separatedBy: ":").dropFirst().joined(separator: ":")
-    
+
     let sessionId = headerParts
         .first(where: { $0.hasPrefix("sessionId:") })?
         .components(separatedBy: ":").dropFirst().joined(separator: ":")
-    
+
     let fieldId = headerParts
         .first(where: { $0.hasPrefix("fieldId:") })?
         .components(separatedBy: ":").dropFirst().joined(separator: ":")
@@ -165,8 +182,8 @@ func unpackMessage(_ message: String) -> WSUnpackedMessage {
     let otherData = headerParts
         .filter { part in
             !part.hasPrefix("type:") &&
-            !part.hasPrefix("sessionId:") &&
-            !part.hasPrefix("fieldId:")
+                !part.hasPrefix("sessionId:") &&
+                !part.hasPrefix("fieldId:")
         }
         .reduce(into: [String: String]()) { acc, part in
             let keyValue = part.components(separatedBy: ":")
@@ -187,31 +204,13 @@ func unpackMessage(_ message: String) -> WSUnpackedMessage {
     )
 }
 
-func packMessage(
-    type: CLIENT_TO_SERVER_MESSAGES,
-    sessionId: String? = nil,
-    fieldId: String? = nil,
-    genRequestId: String? = nil,
-    message: String,
-    otherData: [String: String] = [:]
+func packMessageHeader(
+    data: [String: String] = [:]
 ) -> String {
-    var header = "type:\(type.rawValue)"
-    
-    if let sessionId = sessionId {
-        header += "|sessionId:\(sessionId)"
-    }
-    
-    if let genRequestId = genRequestId {
-        header += "|genRequestId:\(genRequestId)"
-    }
-    
-    if let fieldId = fieldId {
-        header += "|fieldId:\(fieldId)"
-    }
-    
-    for (key, value) in otherData {
+    var header = ""
+    for (key, value) in data {
         header += "|\(key):\(value)"
     }
-    
-    return "\(header)\n\(message)"
+
+    return "\(header)"
 }
