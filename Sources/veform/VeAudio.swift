@@ -28,14 +28,17 @@ class VeAudio: NSObject {
     private var isPausedListening: Bool = false
     private var preferredVoice: AVSpeechSynthesisVoice?
     private var stopAfterOutput: Bool = false
-    init(emitEvent: @escaping (ConversationEvent, String?) -> Void) {
+    private var debug: Bool = false
+    init(emitEvent: @escaping (ConversationEvent, String?) -> Void, debug: Bool = false) {
         self.emitEvent = emitEvent
         speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
+        self.debug = debug
         super.init()
         synthesizer.delegate = self
         lastTextChunkEndIndex = 0
 
         Task {
+            checkPrivacyKeys()
             let permissionsGranted = await requestPermissions()
 
             if !permissionsGranted {
@@ -61,6 +64,18 @@ class VeAudio: NSObject {
             configureAudioSession()
             emitEvent(.audioSetup, nil)
             startListening()
+        }
+    }
+
+    private func checkPrivacyKeys() {
+        let speechKey = Bundle.main.object(forInfoDictionaryKey: "NSSpeechRecognitionUsageDescription")
+        let micKey = Bundle.main.object(forInfoDictionaryKey: "NSMicrophoneUsageDescription")
+        
+        if speechKey == nil {
+            fatalError("veform: Missing NSSpeechRecognitionUsageDescription in your app's Info.plist")
+        }
+        if micKey == nil {
+            fatalError("veform: Missing NSMicrophoneUsageDescription in your app's Info.plist")
         }
     }
 

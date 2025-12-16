@@ -19,18 +19,26 @@ class GenReply {
 
     func start(onMessage: @escaping (_ message: WebSocketServerMessage) -> Void) async {
         self.onMessage = onMessage
-        Task {
-            self.tewyWebsockets = VeWebsockets()
-            self.tewyWebsockets?.delegate = self
+        if VeformConfig.debug {
+            print("Starting gen reply websocket connection")
+        }
+        self.tewyWebsockets = VeWebsockets()
+        self.tewyWebsockets?.delegate = self
+        print("Opening websocket connection")
+        do {
             try await self.tewyWebsockets?.openConnection()
+            let sessionId = try await self.tewyWebsockets?.waitForSessionId()
+            print("GenReply:Session id: \(sessionId)")
+        } catch {
+            print("Error: \(error)")
         }
     }
 
     func handleMessage(message: WebSocketServerMessage) {
-        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyStart {
+        if message.type == .genReplyStart {
             onMessage?(message)
         }
-        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyChunk {
+        if message.type == .genReplyChunk {
              if let lastChar = message.data?.last,
                punctuationCharacters.contains(String(lastChar))
             {
@@ -43,7 +51,7 @@ class GenReply {
                 genReplySentence += message.data ?? ""
             }
         }
-        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyEnd {
+        if message.type == .genReplyEnd {
             onMessage?(message)
         }
     }

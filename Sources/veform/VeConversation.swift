@@ -83,17 +83,34 @@ class VeConversation {
             fieldState[field.name] = FieldState(name: field.name, valid: false, visitCount: 0)
         }
         Task {
-            await genReply.start(onMessage: self.genReplyMessageReceived)
+            if VeformConfig.debug {
+                print("VECONVO:Setting up conversation websocket connection")
+            }
+            try await genReply.start(onMessage: self.genReplyMessageReceived)
             emitEvent(.websocketSetup, nil)
-            genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.setupForm, data: form)
+            if VeformConfig.debug {
+                print("VECONVO:Websockets configured, session started")
+            }
         }
     }
 
     func start() {
+        print("VECONVO: Sending setup form")
+        genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.setupForm, data: form)
+        if VeformConfig.debug {
+            print("VECONVO: Starting conversation")
+        }
         let initialQuestion: String = getFieldQuestion(fieldName: currentFieldName)
         let initialQuestionAppend: String = getFieldQuestionAppend(fieldName: currentFieldName)
-        print("Initial question: \(initialQuestion + initialQuestionAppend)")
+        if VeformConfig.debug {
+            print("VECONVO: Initial question: \(initialQuestion + initialQuestionAppend)")
+        }
         emitEvent(.audioOutMessage, initialQuestion + initialQuestionAppend)
+        let field = form.fields.first(where: { $0.name == currentFieldName })
+        if field?.type == .info {
+            fieldState[currentFieldName]?.valid = true
+            moveToNextField()
+        }
     }
 
     func stop() {
@@ -506,11 +523,13 @@ class VeConversation {
     }
 
     private func genReplyMessageReceived(message: WebSocketServerMessage) {
+        print("VECONVO: hanlding gen reply message: \(message.type)")
         // chunk gen reply contents into sentences and pipe to output
-        if message.type == .genReplyStart {
+        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyStart {
             return
         }
-        if message.type == .genReplyEnd {
+        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyEnd {
+            print("VECONVO: gen reply end message: \(message.type) \(message.valid) \(message.skip) \(message.last) \(message.end) \(message.moveToId) \(message.validYes) \(message.validNo)")
             emitEvent(.genReplyRequestEnd, nil)
             let field = form.fields.first(where: { $0.name == currentFieldName })
             fieldState[currentFieldName]?.valid = message.valid == true ? true : false
