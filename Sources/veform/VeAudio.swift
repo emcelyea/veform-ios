@@ -47,7 +47,6 @@ class VeAudio: NSObject {
                     code: 1,
                     userInfo: [NSLocalizedDescriptionKey: "Speech recognition permissions denied"]
                 )
-                print("Audio Permission errorsss: \(permissionError)")
             }
             let betterVoices = AVSpeechSynthesisVoice.speechVoices().filter {
                 $0.quality == .enhanced || $0.quality == .premium
@@ -113,12 +112,9 @@ class VeAudio: NSObject {
                                          mode: .voiceChat,
                                          options: [.defaultToSpeaker, .allowBluetooth])
             try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            // todo disable this if it causes problems
-            // we can investigate fidelity of simultaneous out/in later
-            // try audioSession.setPrefersEchoCancelledInput(true)
-            print("Audio session configured successfully")
+            VeConfig.vePrint("VEAUDIO: Audio session configured successfully")
         } catch {
-            print("Failed to configure audio session: \(error)")
+            VeConfig.vePrint("VEAUDIO: Failed to configure audio session: \(error)")
         }
     }
 
@@ -170,7 +166,7 @@ class VeAudio: NSObject {
 
     func output(_ text: String) {
         if isSpeakingOutput {
-            print("buffering output \(text)")
+            VeConfig.vePrint("VEAUDIO: Buffering output \(text)")
             bufferOutput(text)
             return
         }
@@ -201,7 +197,6 @@ class VeAudio: NSObject {
     }
 
     func startListening() {
-        print("Starting listening")
         // Check permissions
         do {
             guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
@@ -230,7 +225,6 @@ class VeAudio: NSObject {
                     userInfo: [NSLocalizedDescriptionKey: "Unable to create speech recognition request"]
                 )
             }
-            print("Creating recognition request")
             recognitionRequest.shouldReportPartialResults = true
             recognitionTask = speechRecognizer?.recognitionTask(with: recognitionRequest) { [weak self] result, error in
                 guard let self = self else { return }
@@ -250,20 +244,19 @@ class VeAudio: NSObject {
                         }
 
                     if let error = error {
-                        print("error: \(error)")
+                        VeConfig.vePrint("VEAUDIO: Error: \(error)")
                         return
                     }
                 }
             }
             try setupAudioTap()
         } catch {
-            print("Error setting up audio tap: \(error)")
+            VeConfig.vePrint("VEAUDIO: Error setting up audio tap: \(error)")
         }
     }
 
     func setupAudioTap() throws {
         if !isTapInstalled {
-            print("Installing tap")
             isTapInstalled = true
             let inputNode = audioEngine.inputNode
             let recordingFormat = inputNode.outputFormat(forBus: 0)

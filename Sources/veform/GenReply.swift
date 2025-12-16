@@ -19,18 +19,15 @@ class GenReply {
 
     func start(onMessage: @escaping (_ message: WebSocketServerMessage) -> Void) async {
         self.onMessage = onMessage
-        if VeformConfig.debug {
-            print("Starting gen reply websocket connection")
-        }
+        VeConfig.vePrint("GENREPLY: Starting gen reply websocket connection")
         self.tewyWebsockets = VeWebsockets()
         self.tewyWebsockets?.delegate = self
-        print("Opening websocket connection")
         do {
             try await self.tewyWebsockets?.openConnection()
             let sessionId = try await self.tewyWebsockets?.waitForSessionId()
-            print("GenReply:Session id: \(sessionId)")
+            VeConfig.vePrint("GENREPLY: Session id: \(sessionId)")
         } catch {
-            print("Error: \(error)")
+            VeConfig.vePrint("GENREPLY: Error: \(error)")
         }
     }
 
@@ -63,11 +60,11 @@ class GenReply {
 
 extension GenReply: TewyWebsocketsDelegate {
     func webSocketDidConnect(_: VeWebsockets) {
-        print("Connected!")
+        VeConfig.vePrint("GENREPLY: Connected!")
     }
 
     func webSocketDidDisconnect(_: VeWebsockets) {
-        print("Disconnected")
+        VeConfig.vePrint("GENREPLY: Disconnected")
     }
 
     func webSocket(_: VeWebsockets, didReceiveMessage message: WebSocketServerMessage) {
@@ -75,6 +72,6 @@ extension GenReply: TewyWebsocketsDelegate {
     }
 
     func webSocket(_: VeWebsockets, didEncounterError error: Error) {
-        print("Error: \(error)")
+        VeConfig.vePrint("GENREPLY: Error: \(error)")
     }
 }

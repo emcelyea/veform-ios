@@ -13,8 +13,13 @@ struct ConversationSetupState {
     var pipeGenReply: Bool
 }
 
-public struct VeformConfig {
-    public static var debug: Bool = false
+struct VeConfig {
+    static var verbose: Bool = false
+    static func vePrint(_ message: String) {
+        if VeConfig.verbose {
+            print(message)
+        }
+    }
 }
 
 public class Veform {
@@ -32,12 +37,14 @@ public class Veform {
     public init() {}
 
     public func start(form: Form) {
-        if VeformConfig.debug {
-            print("VEFORM:Starting veform")
-        }
+        VeConfig.vePrint("VEFORM: Starting veform")
         self.form = form
         audio = VeAudio(emitEvent: self.handleEvent)
         conversation = VeConversation(form: form, emitEvent: self.handleEvent, onComplete: self.end)
+    }
+
+    public func setLogging(verbose: Bool) {
+        VeConfig.verbose = verbose
     }
 
     public func stop() {
@@ -116,13 +123,13 @@ public class Veform {
         } else if event == .genReplyRequestEnd {
             audio.resumeListening()
         } else if event == .error {
-            print("ERROR: \(data ?? "Unknown error")")
+            VeConfig.vePrint("VEFORM: ERROR: \(data ?? "Unknown error")")
         }
         if parentCallback != nil, event != .audioSetup, event != .websocketSetup {
             if !state.setupComplete { return }
             let stateEntry = conversation.getFieldStateEntry(name: fieldBeforeEvent?.name ?? "")
             guard let stateEntry = stateEntry else {
-                print("State entry not found")
+                VeConfig.vePrint("VEFORM: State entry not found")
                 return
             }
             DispatchQueue.main.async { [weak self] in

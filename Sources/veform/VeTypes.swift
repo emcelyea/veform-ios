@@ -102,7 +102,7 @@ public struct Field: Codable {
         if let optionIndex = optionIndex {
             self.validation.selectOptions?[optionIndex].addBehavior(behavior: behavior)
         } else {
-            print("Select option with value \(value) not found")
+            VeConfig.vePrint("VESELECTOPTION: Select option with value \(value) not found")
         }
     }
 

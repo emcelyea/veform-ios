@@ -16,11 +16,11 @@ class VeHttp: NSObject {
 
     func getForm(id: String) async throws -> Form? {
         let url = URL(string: basepath + "/form/\(id)")!
-        print("Making thtp request to url: \(url)")
+        VeConfig.vePrint("VEHTTP: Making request to url: \(url)")
         let (data, response) = try await URLSession.shared.data(from: url)
         guard let httpResponse = response as? HTTPURLResponse,
           (200...299).contains(httpResponse.statusCode) else {
-            print("Invalid response from server")
+            VeConfig.vePrint("VEHTTP: Invalid response from server")
             return nil
         }
         let decoder = JSONDecoder()

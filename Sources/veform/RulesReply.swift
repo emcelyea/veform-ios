@@ -192,7 +192,6 @@ func getNumberReply(input: String, lemmas: [String], field: Field) -> NumberRepl
     }
     // check lemmas for number
     for lemma in lemmas {
-        print("Checking lemma: \(lemma)")
        if let match = lemma.range(of: numberRegex, options: .regularExpression) {
             let extractedString = String(lemma[match])
             if let number = stringToNumber(extractedString) {

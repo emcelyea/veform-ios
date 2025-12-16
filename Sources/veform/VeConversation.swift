@@ -83,28 +83,19 @@ class VeConversation {
             fieldState[field.name] = FieldState(name: field.name, valid: false, visitCount: 0)
         }
         Task {
-            if VeformConfig.debug {
-                print("VECONVO:Setting up conversation websocket connection")
-            }
+            VeConfig.vePrint("VECONVO: Setting up conversation websocket connection")
             try await genReply.start(onMessage: self.genReplyMessageReceived)
             emitEvent(.websocketSetup, nil)
-            if VeformConfig.debug {
-                print("VECONVO:Websockets configured, session started")
-            }
+            VeConfig.vePrint("VECONVO: Websockets configured, session started")
         }
     }
 
     func start() {
-        print("VECONVO: Sending setup form")
         genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.setupForm, data: form)
-        if VeformConfig.debug {
-            print("VECONVO: Starting conversation")
-        }
+        VeConfig.vePrint("VECONVO: Starting conversation")
         let initialQuestion: String = getFieldQuestion(fieldName: currentFieldName)
         let initialQuestionAppend: String = getFieldQuestionAppend(fieldName: currentFieldName)
-        if VeformConfig.debug {
-            print("VECONVO: Initial question: \(initialQuestion + initialQuestionAppend)")
-        }
+        VeConfig.vePrint("VECONVO: Initial question: \(initialQuestion + initialQuestionAppend)")
         emitEvent(.audioOutMessage, initialQuestion + initialQuestionAppend)
         let field = form.fields.first(where: { $0.name == currentFieldName })
         if field?.type == .info {
@@ -121,7 +112,7 @@ class VeConversation {
         fieldState[currentFieldName]?.valid = false
         let field = form.fields.first(where: { $0.name == currentFieldName })
         guard let field = field else {
-            print("Error, field \(currentFieldName) not found")
+            VeConfig.vePrint("VECONVO: Error, field \(currentFieldName) not found")
             return
         }
 
@@ -138,14 +129,14 @@ class VeConversation {
         case .number:
             handleInputNumberField(input: input, field: field)
         default:
-            print("Error, unknown field type \(field.name))")
+            VeConfig.vePrint("VECONVO: Error, unknown field type \(field.name))")
         }
     }
 
     func setCurrentField(name: String) {
         let field = form.fields.first(where: { $0.name == name })
         if field == nil {
-            print("Error, field \(name) not found")
+            VeConfig.vePrint("VECONVO: Error, field \(name) not found")
             return
         }
         fieldState[currentFieldName]?.moveToId = name
@@ -178,7 +169,7 @@ class VeConversation {
     func setFieldState(name: String, state: ConversationStateEntry) {
         let field = form.fields.first(where: { $0.name == name })
         guard let field = field else {
-            print("Error, field \(name) not found")
+            VeConfig.vePrint("VECONVO: Error, field \(name) not found")
             return
         }
         fieldState[name] = FieldState(name: name, valid: state.valid, visitCount: fieldState[name]?.visitCount ?? 0)
@@ -292,10 +283,10 @@ class VeConversation {
     }
 
     private func endForm() {
-        print("Ending form")
+        VeConfig.vePrint("VECONVO: Ending form")
         addCurrentFieldToVisitHistory()
         // if we say moveTo
-        print("Testing incomplete fields")
+        VeConfig.vePrint("VECONVO: Testing incomplete fields")
         if moveToAnyIncompleteField(root: initialFieldName) != nil {
             return
         }
@@ -320,10 +311,10 @@ class VeConversation {
             }
             let field = form.fields.first(where: { $0.name == nextFieldName })
             guard let field = field else {
-                print("Error, tried to move to fieldId \(nextFieldName) but it doesn't exist")
+                VeConfig.vePrint("VECONVO: Error, tried to move to fieldId \(nextFieldName) but it doesn't exist")
                 return
             }
-            print("Moving to fieldName: \(nextFieldName) \(field.question)")
+            VeConfig.vePrint("VECONVO: Moving to fieldName: \(nextFieldName) \(field.question)")
             fieldState[currentFieldName]?.skip = false
             fieldState[currentFieldName]?.last = false
             fieldState[currentFieldName]?.end = false
@@ -434,7 +425,7 @@ class VeConversation {
         let fieldState = fieldState[fieldName]
         let field = form.fields.first(where: { $0.name == fieldName })
         guard let field = field, let fieldState = fieldState else {
-            print("Error, field \(fieldName) not found")
+            VeConfig.vePrint("VECONVO: Error, field \(fieldName) not found")
             return nil
         }
         if fieldState.skip == true {
@@ -449,10 +440,8 @@ class VeConversation {
             return nil
         }
         if fieldState.last == true {
-            print("last requested, visitHistory: \(visitHistory.count) \(visitHistory.last?.name ?? "")")
             if visitHistory.count > 0 {
                 let lastFieldName = visitHistory.last?.name
-                print("last fieldName: \(lastFieldName ?? "")")
                 return lastFieldName
             }
             return currentFieldName
@@ -523,13 +512,11 @@ class VeConversation {
     }
 
     private func genReplyMessageReceived(message: WebSocketServerMessage) {
-        print("VECONVO: hanlding gen reply message: \(message.type)")
         // chunk gen reply contents into sentences and pipe to output
         if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyStart {
             return
         }
         if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyEnd {
-            print("VECONVO: gen reply end message: \(message.type) \(message.valid) \(message.skip) \(message.last) \(message.end) \(message.moveToId) \(message.validYes) \(message.validNo)")
             emitEvent(.genReplyRequestEnd, nil)
             let field = form.fields.first(where: { $0.name == currentFieldName })
             fieldState[currentFieldName]?.valid = message.valid == true ? true : false
@@ -570,7 +557,7 @@ class VeConversation {
             moveToNextField()
             return
         }
-        print("Outputting Gen sentence: \(message.data ?? "No data")")
+        VeConfig.vePrint("VECONVO: Outputting Gen sentence: \(message.data ?? "No data")")
         emitEvent(.audioOutMessage, message.data ?? "")
     }
 

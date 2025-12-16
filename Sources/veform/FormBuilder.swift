@@ -23,7 +23,7 @@ public class FormBuilder {
     ) -> Self {
         let root = form.fields.count == 0
         if form.fields.contains(where: { $0.name == name }) {
-            print("Field with name \(name) already exists")
+            print("VEFORM WARNING: Field with name \(name) already exists, replacing with this one.")
         }
         if !root {
             let lastFieldIndex = form.fields.count - 1

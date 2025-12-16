@@ -11,9 +11,7 @@ func testLastRequested(lemmas: [String], input: String) -> Bool {
     if input.count > 50  {
         return false
     }
-    print("testing last requested with input: \(input) and lemmas: \(lemmas)")
     let hitPercentage = getLemmasHitPercentage(lemmas: lemmas, input: input, strongWordList: hardLastWords, weakWordList: softLastWords)
-    print("hit percentage: \(hitPercentage)")
     return hitPercentage > 0.5
 }
 let hardLastWords: [String] = [

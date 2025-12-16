@@ -127,7 +127,7 @@ class VeWebsockets: ObservableObject {
 
     func closeConnection() {
         guard state == .connected || state == .connecting else {
-            print("WebSocket: Not connected")
+            VeConfig.vePrint("VEWEBSOCKETS: Not connected")
             return
         }
 
@@ -140,15 +140,15 @@ class VeWebsockets: ObservableObject {
 
     func sendJSON<T: Codable>(type: CLIENT_TO_SERVER_MESSAGES, data: T) {
         guard let sessionId = sessionId else {
-            print("WS sendMessage, No session id")
+            VeConfig.vePrint("VEWEBSOCKETS: sendMessage, No session id")
             return
         }
         guard state == .connected else {
             let error = WebSocketError.notConnected
-            print("WS sendmessage while not connected: \(error)")
+            VeConfig.vePrint("VEWEBSOCKETS: sendmessage while not connected: \(error)")
             return
         }
-        print("VEWebsockets: Sending message: \(type) \(data)")
+        VeConfig.vePrint("VEWEBSOCKETS: Sending message: \(type) \(data)")
         do {
             let message = WebSocketClientMessage(type: type, sessionId: sessionId, data: data)
             let jsonData = try JSONEncoder().encode(message)
@@ -176,7 +176,7 @@ class VeWebsockets: ObservableObject {
                 self.delegate?.webSocket(self, didEncounterError: error)
                 self.connectionCompletion?(.failure(error))
                 self.connectionCompletion = nil
-                print("WS startlistening error: \(error)")
+                VeConfig.vePrint("VEWEBSOCKETS: startlistening error: \(error)")
             }
         }
     }
@@ -184,20 +184,19 @@ class VeWebsockets: ObservableObject {
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
         switch message {
         case let .string(text):
-            print("VEWebsockets: Received message: \(text)")
+            VeConfig.vePrint("VEWEBSOCKETS: Received message: \(text)")
             if state == .connecting {
-                print("setting to connected")
                 state = .connected
                 delegate?.webSocketDidConnect(self)
                 connectionCompletion?(.success(()))
                 connectionCompletion = nil
             }
             do {
-                print("RAW message: \(text)")
+                VeConfig.vePrint("VEWEBSOCKETS: RAW message: \(text)")
                 let serverMessage = try JSONDecoder().decode(WebSocketServerMessage.self, from: text.data(using: .utf8)!)
-                print("VEWebsockets: Decoded message: \(serverMessage.type) valid:\(serverMessage.valid)")
+                VeConfig.vePrint("VEWEBSOCKETS: Decoded message: \(serverMessage.type) valid:\(serverMessage.valid)")
                 if serverMessage.type == .sessionId {
-                    print("Setting session id: \(serverMessage.sessionId)")
+                    VeConfig.vePrint("VEWEBSOCKETS: Setting session id: \(serverMessage.sessionId)")
                     sessionId = serverMessage.sessionId
                     if let sessionId = serverMessage.sessionId {
                         sessionIdCompletion?(.success(sessionId))
@@ -206,27 +205,27 @@ class VeWebsockets: ObservableObject {
                     return
                 }
                 if serverMessage.type == .sessionNotFound {
-                    print("WS: Session not found \(serverMessage.data ?? "No data")")
+                    VeConfig.vePrint("VEWEBSOCKETS: Session not found \(serverMessage.data ?? "No data")")
                     return
                 }
                 if serverMessage.type == .error {
-                    print("WS: Error: \(serverMessage.data ?? "No data")")
+                    VeConfig.vePrint("VEWEBSOCKETS: Error: \(serverMessage.data ?? "No data")")
                     return
                 }
                 if serverMessage.type == .interrupt {
-                    print("WS: Interrupt \(serverMessage.data ?? "No data")")
+                    VeConfig.vePrint("VEWEBSOCKETS: Interrupt \(serverMessage.data ?? "No data")")
                     return
                 }
                 delegate?.webSocket(self, didReceiveMessage: serverMessage)
             } catch {
-                print("WS: Error decoding message: \(error)")
+                VeConfig.vePrint("VEWEBSOCKETS: Error decoding message: \(error)")
                 return
             }
         case let .data(data):
-            print("WS: Data message received \(data.count)")
+            VeConfig.vePrint("VEWEBSOCKETS: Data message received \(data.count)")
             return
         @unknown default:
-            print("WS: Unknown message type received")
+            VeConfig.vePrint("VEWEBSOCKETS: Unknown message type received")
         }
     }
 
