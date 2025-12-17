@@ -32,13 +32,14 @@ public class Veform {
     private var state: ConversationSetupState = .init(setupComplete: false,
                                                       lastConversationEvent: nil,
                                                       pipeGenReply: false)
-    private var parentCallback: ((ConversationEvent, ConversationStateEntry) -> Void)?
+    private var parentCallback: ((ConversationEvent, ConversationStateEntry?) -> Void)?
     private var parentCompleteCallback: ((ConversationState) -> Void)?
     public init() {}
 
     public func start(form: Form) {
-        VeConfig.vePrint("VEFORM: Starting veform")
         self.form = form
+        handleEvent(event: .loadingStarted)
+        VeConfig.vePrint("VEFORM: Starting veform")
         audio = VeAudio(emitEvent: self.handleEvent)
         conversation = VeConversation(form: form, emitEvent: self.handleEvent, onComplete: self.end)
     }
@@ -80,7 +81,7 @@ public class Veform {
         conversation.setFieldState(name: name, state: state)
     }
 
-    public func onEvent(callback: @escaping (ConversationEvent, ConversationStateEntry) -> Void) {
+    public func onEvent(callback: @escaping (ConversationEvent, ConversationStateEntry?) -> Void) {
         parentCallback = callback
     }
 
@@ -94,21 +95,22 @@ public class Veform {
         }
         audio.stopWhenDone()
         conversation.stop()
+        handleEvent(event: .runningFinished)
     }
 
-    // ok this is dumb, go pee and then this should fire a valid answer event not a fuckin audioInMessage event
     func handleEvent(event: ConversationEvent, data: String? = nil) {
-        let fieldBeforeEvent = conversation.getCurrentField()
-        // yeh I am dumb, this shit needs ot dispatch conversationEventData
-        // then we can map it to entries for the end
         if event == .websocketSetup {
             isWebsocketSetup = true
             if shouldSendInitialMessage() {
+                handleEvent(event: .loadingFinished)
+                handleEvent(event: .runningStarted)
                 conversation.start()
             }
         } else if event == .audioSetup {
             isAudioSetup = true
             if shouldSendInitialMessage() {
+                handleEvent(event: .loadingFinished)
+                handleEvent(event: .runningStarted)
                 conversation.start()
             }
         } else if event == .audioInMessage {
@@ -126,7 +128,13 @@ public class Veform {
             VeConfig.vePrint("VEFORM: ERROR: \(data ?? "Unknown error")")
         }
         if parentCallback != nil, event != .audioSetup, event != .websocketSetup {
+            if event == .loadingStarted, event == .loadingFinished {
+                DispatchQueue.main.async {[weak self] in
+                    self?.parentCallback?(event, nil)
+                }
+            }
             if !state.setupComplete { return }
+            let fieldBeforeEvent = conversation.getCurrentField()
             let stateEntry = conversation.getFieldStateEntry(name: fieldBeforeEvent?.name ?? "")
             guard let stateEntry = stateEntry else {
                 VeConfig.vePrint("VEFORM: State entry not found")

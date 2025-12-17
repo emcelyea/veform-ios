@@ -234,8 +234,6 @@ class VeWebsockets: ObservableObject {
     }
 }
 
-// MARK: - WebSocket Errors
-
 enum WebSocketError: Error, LocalizedError {
     case invalidURL
     case notConnected

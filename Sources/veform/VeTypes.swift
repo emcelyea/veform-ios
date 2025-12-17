@@ -23,6 +23,10 @@ public enum ConversationAnswerType {
 }
 
 public enum ConversationEvent: String {
+    case loadingStarted
+    case loadingFinished
+    case runningStarted
+    case runningFinished
     case audioInChunk
     case audioInMessage
     case audioOutChunk
