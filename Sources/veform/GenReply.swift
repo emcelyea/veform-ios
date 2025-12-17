@@ -17,18 +17,15 @@ class GenReply {
         self.form = form
     }
 
-    func start(onMessage: @escaping (_ message: WebSocketServerMessage) -> Void) async {
+    func start(onMessage: @escaping (_ message: WebSocketServerMessage) -> Void) async throws {
         self.onMessage = onMessage
         VeConfig.vePrint("GENREPLY: Starting gen reply websocket connection")
         self.tewyWebsockets = VeWebsockets()
         self.tewyWebsockets?.delegate = self
-        do {
-            try await self.tewyWebsockets?.openConnection()
-            let sessionId = try await self.tewyWebsockets?.waitForSessionId()
-            VeConfig.vePrint("GENREPLY: Session id: \(sessionId)")
-        } catch {
-            VeConfig.vePrint("GENREPLY: Error: \(error)")
-        }
+        try await self.tewyWebsockets?.openConnection()
+        let sessionId = try await self.tewyWebsockets?.waitForSessionId()
+        VeConfig.vePrint("GENREPLY: Session id: \(sessionId)")
+
     }
 
     func handleMessage(message: WebSocketServerMessage) {

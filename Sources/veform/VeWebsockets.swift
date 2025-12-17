@@ -106,22 +106,27 @@ class VeWebsockets: ObservableObject {
         webSocketTask = urlSession?.webSocketTask(with: url)
         webSocketTask?.resume()
 
-        try await withThrowingTaskGroup(of: Void.self) { group in
-            group.addTask {
-                try await withCheckedThrowingContinuation { continuation in
-                    self.connectionCompletion = { result in
-                        continuation.resume(with: result)
+        do {
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                group.addTask {
+                    try await withCheckedThrowingContinuation { continuation in
+                        self.connectionCompletion = { result in
+                            continuation.resume(with: result)
+                        }
+                        self.startListening()
                     }
-                    self.startListening()
                 }
+                
+                group.addTask {
+                    try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
+                    throw WebSocketError.connectionFailed
+                }
+                try await group.next()
+                group.cancelAll()
             }
-
-            group.addTask {
-                try await Task.sleep(nanoseconds: 10_000_000_000) // 10 seconds
-                throw WebSocketError.connectionFailed
-            }
-            try await group.next()
-            group.cancelAll()
+        } catch {
+            VeConfig.vePrint("VEWEBSOCKETS: Error opening connection: \(error.localizedDescription)")
+            throw error
         }
     }
 

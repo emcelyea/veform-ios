@@ -84,7 +84,12 @@ class VeConversation {
         }
         Task {
             VeConfig.vePrint("VECONVO: Setting up conversation websocket connection")
-            try await genReply.start(onMessage: self.genReplyMessageReceived)
+            do {
+                try await genReply.start(onMessage: self.genReplyMessageReceived)
+            } catch {
+                VeConfig.vePrint("VECONVO: Error starting conversation websocket connection: \(error)")
+                emitEvent(.error, "Error starting conversation websocket connection: \(error.localizedDescription)")
+            }
             emitEvent(.websocketSetup, nil)
             VeConfig.vePrint("VECONVO: Websockets configured, session started")
         }

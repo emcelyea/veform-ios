@@ -99,6 +99,7 @@ public class Veform {
     }
 
     func handleEvent(event: ConversationEvent, data: String? = nil) {
+        print("veform, handling event: \(event) \(data)")
         if event == .websocketSetup {
             isWebsocketSetup = true
             if shouldSendInitialMessage() {
@@ -126,9 +127,20 @@ public class Veform {
             audio.resumeListening()
         } else if event == .error {
             VeConfig.vePrint("VEFORM: ERROR: \(data ?? "Unknown error")")
+            if isAudioSetup {
+                audio.output("We are having an issue please try again later.", block:true, purge:true)
+                audio.stopWhenDone()
+                handleEvent(event: .runningFinished)
+            }
+            if isWebsocketSetup {
+                conversation.stop()
+                handleEvent(event: .runningFinished)
+            }
         }
         if parentCallback != nil, event != .audioSetup, event != .websocketSetup {
-            if event == .loadingStarted, event == .loadingFinished {
+            print("veform, passing event to parent: \(event)")
+            if event == .loadingStarted {
+                print("veform, passing loading started to parent")
                 DispatchQueue.main.async {[weak self] in
                     self?.parentCallback?(event, nil)
                 }

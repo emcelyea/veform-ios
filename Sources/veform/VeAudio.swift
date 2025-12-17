@@ -28,6 +28,7 @@ class VeAudio: NSObject {
     private var isPausedListening: Bool = false
     private var preferredVoice: AVSpeechSynthesisVoice?
     private var stopAfterOutput: Bool = false
+    private var blockOutput: Bool = false
     private var debug: Bool = false
     init(emitEvent: @escaping (ConversationEvent, String?) -> Void, debug: Bool = false) {
         self.emitEvent = emitEvent
@@ -129,7 +130,6 @@ class VeAudio: NSObject {
         stopAfterOutput = true
         if !isSpeakingOutput {
             stopOutput()
-
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
     }
@@ -164,11 +164,24 @@ class VeAudio: NSObject {
         speechBuffer += text
     }
 
-    func output(_ text: String) {
+    func output(_ text: String, block: Bool? = nil, purge: Bool? = nil) {
+            if blockOutput && !(purge ?? false) {
+        return
+    }
+    if block ?? false {
+        blockOutput = true
+    }
         if isSpeakingOutput {
-            VeConfig.vePrint("VEAUDIO: Buffering output \(text)")
-            bufferOutput(text)
-            return
+            if purge ?? false {
+                synthesizer.stopSpeaking(at: .immediate)
+                isSpeakingOutput = false
+                blockOutput = block ?? false
+                speechBuffer = ""
+            } else {
+                VeConfig.vePrint("VEAUDIO: Buffering output \(text)")
+                bufferOutput(text)
+                return
+            }
         }
         isSpeakingOutput = true
         emitEvent?(.speaking, nil)
@@ -286,6 +299,7 @@ extension VeAudio: AVSpeechSynthesizerDelegate {
 
     func speechSynthesizer(_: AVSpeechSynthesizer, didFinish _: AVSpeechUtterance) {
         isSpeakingOutput = false
+        blockOutput = false
         if speechBuffer.count > 0 {
             output(speechBuffer)
             speechBuffer = ""
