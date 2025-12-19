@@ -14,6 +14,7 @@ enum SERVER_TO_CLIENT_MESSAGES: String, Codable {
     case genReplyStart = "GEN_REPLY_START"
     case genReplyChunk = "GEN_REPLY_CHUNK"
     case genReplyEnd = "GEN_REPLY_END"
+    case hotPhraseResponse = "HOT_PHRASE_RESULT"
     case interrupt = "INTERRUPT"
     case error = "ERROR"
 }
@@ -21,6 +22,7 @@ enum SERVER_TO_CLIENT_MESSAGES: String, Codable {
 public enum CLIENT_TO_SERVER_MESSAGES: String, Codable {
     case setupForm = "SETUP_FORM"
     case genReplyRequest = "GEN_REPLY_REQUEST"
+    case hotPhraseRequest = "HOT_PHRASE_REQUEST"
 }
 
 enum WebSocketState {
@@ -46,7 +48,7 @@ struct WebSocketServerMessage: Codable {
     let skip: Bool?
     let last: Bool?
     let end: Bool?
-    let moveToId: String?
+    let moveToName: String?
     let validYes: Bool?
     let validNo: Bool?
     let number: Double?

@@ -32,6 +32,7 @@ public class Veform {
     private var state: ConversationSetupState = .init(setupComplete: false,
                                                       lastConversationEvent: nil,
                                                       pipeGenReply: false)
+    // todo later, make this clalback like way more useful, i.e. event current, last                                                
     private var parentCallback: ((ConversationEvent, ConversationStateEntry?) -> Void)?
     private var parentCompleteCallback: ((ConversationState) -> Void)?
     public init() {}

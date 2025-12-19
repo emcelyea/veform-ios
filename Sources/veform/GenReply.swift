@@ -48,6 +48,10 @@ class GenReply {
         if message.type == .genReplyEnd {
             onMessage?(message)
         }
+
+        if message.type == .hotPhraseResponse {
+            onMessage?(message)
+        }
     }
 
    func sendMessage<T: Codable>(type: CLIENT_TO_SERVER_MESSAGES, data: T) -> Void {
