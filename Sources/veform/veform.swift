@@ -99,7 +99,6 @@ public class Veform {
     }
 
     func handleEvent(event: ConversationEvent, data: String? = nil) {
-        print("veform, handling event: \(event) \(data)")
         if event == .websocketSetup {
             isWebsocketSetup = true
             if shouldSendInitialMessage() {

@@ -209,6 +209,8 @@ class VeConversation {
     private func handleInputYesNoField(input: String, field: Field) {
         let rulesValidation = RulesValidation(input: input, field: field)
         let hotPhraseReply = rulesValidation.validateHotPhrases()
+        print("Rules Validation \(rulesValidation)")
+        print("HOTPHRASE REPLY \(hotPhraseReply)")
         fieldState[currentFieldName]?.skip = hotPhraseReply.skip ?? false
         fieldState[currentFieldName]?.last = hotPhraseReply.last ?? false
         fieldState[currentFieldName]?.end = hotPhraseReply.end ?? false

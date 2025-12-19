@@ -54,7 +54,7 @@ struct WebSocketServerMessage: Codable {
     let selectOptions: String?
 }
 
-let urlWs = "wss://b8bd01f5b159.ngrok-free.app"
+let urlWs = "wss://0414b950a61a.ngrok-free.app"
 class VeWebsockets: ObservableObject {
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?

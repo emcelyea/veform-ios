@@ -30,7 +30,6 @@ func getYesNoReply(sentiment: Double?, lemmas: [String], field _: Field, thresho
     let weakNoMatches = fuzzyMatch(lemmas: lemmas, expected: weakNo)
 
     let totalMatches = strongYesMatches + weakYesMatches + strongNoMatches + weakNoMatches
-
     let sentimentScore = abs(sentiment ?? 0) * sentimentWeight
     if sentiment ?? 0 < 0 {
         noScore = Double(strongNoMatches + weakNoMatches) / Double(totalMatches) + sentimentScore
@@ -39,7 +38,6 @@ func getYesNoReply(sentiment: Double?, lemmas: [String], field _: Field, thresho
         noScore = Double(strongNoMatches + weakNoMatches) / Double(totalMatches) - sentimentScore
         yesScore = Double(strongYesMatches + weakYesMatches) / Double(totalMatches) + sentimentScore
     }
-
     if noScore > yesScore {
         if noScore > threshold {
             return YesNoReply(valid: true, answer: .no)
@@ -102,22 +100,22 @@ let weakYes = [
 
 // Strong negative responses
 let strongNo = [
-    "no",
-    "nope",
-    "nah",
-    "absolutely not",
-    "definitely not",
-    "certainly not",
-    "of course not",
+    " no ",
+    " nope ",
+    " nah ",
+    "absolutely not ",
+    "definitely not ",
+    "certainly not ",
+    "of course not ",
     "never",
     "no way",
-    "not at all",
+    " not at all",
     "negative",
     "incorrect",
-    "not a chance",
-    "no chance",
+    " not a chance",
+    " no chance",
     "by no means",
-    "not in the slightest",
+    " not in the slightest",
     "under no circumstances",
     "out of the question",
     "impossible",

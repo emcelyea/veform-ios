@@ -77,7 +77,7 @@ public struct Field: Codable {
     // let eventConfig: FieldEventConfig
     let question: String
     var eventConfig: FieldEventConfig
-    var validation: FieldValidation
+    public var validation: FieldValidation
     mutating public func addBehavior(event: FieldEvent, behavior: FieldBehavior) {
         if self.eventConfig[event] == nil {
             self.eventConfig[event] = [behavior]
@@ -110,6 +110,10 @@ public struct Field: Codable {
         }
     }
 
+    mutating public func addValidation(validation: FieldValidation) {
+        self.validation = validation
+    }
+
     init(
         name: String,
         type: FieldTypes,
@@ -125,20 +129,18 @@ public struct Field: Codable {
     }
 }
 
-struct FieldValidation: Codable {
-    var selectOptions: [SelectOption]?
-    var selectSubject: String?
-    let maxCharacters: Int?
-    let minCharacters: Int?
-    let minValue: Double?
-    let maxValue: Double?
-    let maxSelections: Int?
-    let minSelections: Int?
-    let minDate: Date?
-    let maxDate: Date?
-    let minDateRange: Date?
-    let maxDateRange: Date?
+public struct FieldValidation: Codable {
+    public var validate: Bool?
+    public var selectOptions: [SelectOption]?
+    public var selectSubject: String?
+    public var maxCharacters: Int?
+    public var minCharacters: Int?
+    public var minValue: Double?
+    public var maxValue: Double?
+    public var maxSelections: Int?
+    public var minSelections: Int?
     init(
+        validate: Bool? = true,
         selectOptions: [SelectOption]? = nil,
         selectSubject: String? = nil,
         maxCharacters: Int? = nil,
@@ -147,11 +149,8 @@ struct FieldValidation: Codable {
         maxValue: Double? = nil,
         maxSelections: Int? = nil,
         minSelections: Int? = nil,
-        minDate: Date? = nil,
-        maxDate: Date? = nil,
-        minDateRange: Date? = nil,
-        maxDateRange: Date? = nil
-    ) {
+    ) { 
+        self.validate = validate
         self.selectOptions = selectOptions
         self.selectSubject = selectSubject
         self.maxCharacters = maxCharacters
@@ -160,10 +159,6 @@ struct FieldValidation: Codable {
         self.maxValue = maxValue
         self.maxSelections = maxSelections
         self.minSelections = minSelections
-        self.minDate = minDate
-        self.maxDate = maxDate
-        self.minDateRange = minDateRange
-        self.maxDateRange = maxDateRange
     }
 }
 

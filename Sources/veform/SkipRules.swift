@@ -13,7 +13,7 @@ func testSkipRequested(lemmas: [String], input: String) -> Bool {
         return false
     }
     let hitPercentage = getLemmasHitPercentage(lemmas: lemmas, input: input, strongWordList: hardSkipWords, weakWordList: softSkipWords)
-    return hitPercentage > 0.5
+    return hitPercentage > 0.6
 }
 
 let hardSkipWords: [String] = [
@@ -26,8 +26,6 @@ let hardSkipWords: [String] = [
     "go to the next",
     "go to next",
     "different question",
-    "another question",
-    "won't answer",
     "pass on this",
     "ignore this",
     "ignore question",
@@ -37,9 +35,6 @@ let hardSkipWords: [String] = [
     "ignore this one question",
     "next question",
     "next one",
-    "another question",
-    "come back to th",
-    "come back later",
     "let's move on",
     "shall we move on",
     "onto the next",
