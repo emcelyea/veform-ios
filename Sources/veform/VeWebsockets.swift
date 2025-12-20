@@ -14,7 +14,10 @@ enum SERVER_TO_CLIENT_MESSAGES: String, Codable {
     case genReplyStart = "GEN_REPLY_START"
     case genReplyChunk = "GEN_REPLY_CHUNK"
     case genReplyEnd = "GEN_REPLY_END"
-    case hotPhraseResponse = "HOT_PHRASE_RESULT"
+    case hotPhraseSkip = "HOT_PHRASE_SKIP"
+    case hotPhraseLast = "HOT_PHRASE_LAST"
+    case hotPhraseEnd = "HOT_PHRASE_END"
+    case hotPhraseMoveTo = "HOT_PHRASE_MOVE_TO"
     case interrupt = "INTERRUPT"
     case error = "ERROR"
 }
@@ -191,7 +194,6 @@ class VeWebsockets: ObservableObject {
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
         switch message {
         case let .string(text):
-            VeConfig.vePrint("VEWEBSOCKETS: Received message: \(text)")
             if state == .connecting {
                 state = .connected
                 delegate?.webSocketDidConnect(self)

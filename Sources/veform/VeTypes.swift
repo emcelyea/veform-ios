@@ -34,8 +34,8 @@ public enum ConversationEvent: String {
     case listening
     case speaking
     case fieldChanged
-    case genReplyRequestStart
-    case genReplyRequestEnd
+    case pauseListening
+    case resumeListening
     case websocketSetup
     case audioSetup
     case error
@@ -131,8 +131,8 @@ public struct Field: Codable {
 
 public struct FieldValidation: Codable {
     public var validate: Bool?
-    public var selectOptions: [SelectOption]?
-    public var selectSubject: String?
+    var selectOptions: [SelectOption]?
+    var selectSubject: String?
     public var maxCharacters: Int?
     public var minCharacters: Int?
     public var minValue: Double?
@@ -148,7 +148,7 @@ public struct FieldValidation: Codable {
         minValue: Double? = nil,
         maxValue: Double? = nil,
         maxSelections: Int? = nil,
-        minSelections: Int? = nil,
+        minSelections: Int? = nil
     ) { 
         self.validate = validate
         self.selectOptions = selectOptions

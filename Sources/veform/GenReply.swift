@@ -29,9 +29,8 @@ class GenReply {
     }
 
     func handleMessage(message: WebSocketServerMessage) {
-        if message.type == .genReplyStart {
-            onMessage?(message)
-        }
+        VeConfig.vePrint("GENREPLY: Handling message: \(message.type) \(message.data ?? "")")
+
         if message.type == .genReplyChunk {
              if let lastChar = message.data?.last,
                punctuationCharacters.contains(String(lastChar))
@@ -45,11 +44,7 @@ class GenReply {
                 genReplySentence += message.data ?? ""
             }
         }
-        if message.type == .genReplyEnd {
-            onMessage?(message)
-        }
-
-        if message.type == .hotPhraseResponse {
+        if message.type == .genReplyStart || message.type == .hotPhraseSkip || message.type == .hotPhraseLast || message.type == .hotPhraseEnd || message.type == .hotPhraseMoveTo || message.type == .genReplyEnd {
             onMessage?(message)
         }
     }

@@ -33,6 +33,11 @@ struct FieldState {
     var last: Bool?
     var end: Bool?
     var moveToName: String?
+    var hotPhraseSkipResolved: Bool?
+    var hotPhraseLastResolved: Bool?
+    var hotPhraseEndResolved: Bool?
+    var hotPhraseMoveToResolved: Bool?
+    var genReplyRunning: Bool?
     init(
         name: String,
         valid: Bool,
@@ -58,8 +63,9 @@ struct FieldState {
     }
 }
 
-// ok so this seems fuckin great lol, lets start uhhh
-// doin the damn hotphraese server stuff next
+// ok lets uhhhh...
+// fuck just rip all the shit i did today out because im a fuckin moron
+// so like... 
 let genReplyStartFlag = "*START*"
 let genReplyEndFlag = "*END*"
 class VeConversation {
@@ -119,7 +125,11 @@ class VeConversation {
     func stop() {
         genReply.tewyWebsockets?.closeConnection()
     }
-
+    // ONCE BACK TEST THIS AGIAN THEN PUSH TO SERVER
+    // THEN LETS START MOVING VEAUDIO IN HERE AND MAKING A CLEAR LAYER
+    // VEFORM JUST MANAGES EVENTS AND CONSUMER INTERFACE
+    // THIS HANDLES ALL LOGIC
+    // THEN ABSTRACT PURE FUNCTIONS OUT OF HERE TO MAKE THIS MORE MANAGEABLE
     func inputReceived(input: String) {
         fieldState[currentFieldName]?.valid = false
         let field = form.fields.first(where: { $0.name == currentFieldName })
@@ -127,10 +137,8 @@ class VeConversation {
             VeConfig.vePrint("VECONVO: Error, field \(currentFieldName) not found")
             return
         }
-        // so here we like... start our hotPhrase shit for the field via llm
-        genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.hotPhraseRequest, data: HotPhraseRequest(fieldName: currentFieldName, question: field.question, input: input))
-        let rulesValidation = RulesValidation(input: input, field: field)
 
+        let rulesValidation = RulesValidation(input: input, field: field)
         switch field.type {
         case .yesNo:
             let yesNoReply = rulesValidation.validateYesNo()
@@ -154,12 +162,26 @@ class VeConversation {
         default:
             VeConfig.vePrint("VECONVO: Error, unknown field type \(field.name))")
         }
+         
+        addCurrentFieldToFieldHistory(input: input, genReply: nil)
 
-        // start llm validation if rules failed
-        if !fieldState[currentFieldName]?.valid {
-            addCurrentFieldToFieldHistory(input: input, genReply: nil)
-            emitEvent(.genReplyRequestStart, nil)
-            let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
+        if fieldState[currentFieldName]?.valid == true {
+            let nextOutput = getResponseOutput(field: field, fieldState: fieldState[currentFieldName]!)
+            emitEvent(.audioOutMessage, nextOutput)
+            moveToNextField()
+            return
+        }
+        // start gen passes
+        emitEvent(.pauseListening, nil)
+        fieldState[currentFieldName]?.hotPhraseSkipResolved = false
+        fieldState[currentFieldName]?.hotPhraseLastResolved = false
+        fieldState[currentFieldName]?.hotPhraseEndResolved = false
+        fieldState[currentFieldName]?.hotPhraseMoveToResolved = false
+        genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.hotPhraseRequest, data: HotPhraseRequest(fieldName: currentFieldName, question: field.question, input: input))
+        let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
+        print("VECONVO CHECKING GEN START, \(field.validation.validate) \(field.type)")
+        if field.validation.validate == true || field.type != .textarea {
+            fieldState[currentFieldName]?.genReplyRunning = true
             genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.genReplyRequest, data: GenReplyRequest(fieldName: currentFieldName, fieldHistory: fieldHistory))
         }
         // output thinking message to cover time before responses come back
@@ -191,7 +213,7 @@ class VeConversation {
             fieldState[currentFieldName]?.skip = false
             fieldState[currentFieldName]?.last = false
             fieldState[currentFieldName]?.end = false
-            fieldState[currentFieldName]?.moveToName= nil
+            fieldState[currentFieldName]?.moveToName = nil
             currentFieldName = nextFieldName
             if fieldState[nextFieldName]?.valid == true, traversing == true {
                 return moveToNextField(noVisit: true, traversing: true)
@@ -205,13 +227,7 @@ class VeConversation {
                 moveToNextField()
             }
         } else {
-            // field is still invalid
-            if let input = input {
-                addCurrentFieldToFieldHistory(input: input, genReply: nil)
-                emitEvent(.genReplyRequestStart, nil)
-                let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
-                genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.genReplyRequest, data: GenReplyRequest(fieldName: currentFieldName, fieldHistory: fieldHistory))
-            }
+            VeConfig.vePrint("VECONVO: moveToNextField called with invalid field: \(currentFieldName)")
         }
     }
 
@@ -384,53 +400,101 @@ class VeConversation {
         }
     }
 
-    private var genReplyQueue: [WebSocketServerMessage] = []
+    private var genReplyMessageQueue: [WebSocketServerMessage] = []
     private var isProcessingGenReply = false
+
+
+
+    private func allHotPhrasesResolved() -> Bool {
+        return fieldState[currentFieldName]?.hotPhraseSkipResolved == true && fieldState[currentFieldName]?.hotPhraseLastResolved == true && fieldState[currentFieldName]?.hotPhraseEndResolved == true && fieldState[currentFieldName]?.hotPhraseMoveToResolved == true
+    }
+    private func isHotPhraseMessage(type: SERVER_TO_CLIENT_MESSAGES) -> Bool {
+        return type == SERVER_TO_CLIENT_MESSAGES.hotPhraseSkip || type == SERVER_TO_CLIENT_MESSAGES.hotPhraseLast || type == SERVER_TO_CLIENT_MESSAGES.hotPhraseEnd || type == SERVER_TO_CLIENT_MESSAGES.hotPhraseMoveTo
+    }
+
+    private func handleHotPhraseMessage(message: WebSocketServerMessage) {
+         let field = form.fields.first(where: { $0.name == currentFieldName })
+        guard let field = field else {
+            VeConfig.vePrint("VECONVO: handleHotPhraseMessage: Error, field \(currentFieldName) not found")
+            isProcessingGenReply = false
+            return
+        }
+        var resolved = false
+        if message.type == SERVER_TO_CLIENT_MESSAGES.hotPhraseSkip {
+            fieldState[currentFieldName]?.hotPhraseSkipResolved = true
+            if message.skip == true {
+                fieldState[currentFieldName]?.skip = true
+                resolved = true
+            }
+        }
+        if message.type == SERVER_TO_CLIENT_MESSAGES.hotPhraseLast {
+            fieldState[currentFieldName]?.hotPhraseLastResolved = true
+            if message.last == true {
+                fieldState[currentFieldName]?.last = true
+                resolved = true
+            }
+        }
+        if message.type == SERVER_TO_CLIENT_MESSAGES.hotPhraseEnd {
+            fieldState[currentFieldName]?.hotPhraseEndResolved = true
+            if message.end == true {
+                fieldState[currentFieldName]?.end = true
+                resolved = true
+            }
+        }
+        if message.type == SERVER_TO_CLIENT_MESSAGES.hotPhraseMoveTo {
+            fieldState[currentFieldName]?.hotPhraseMoveToResolved = true
+            if message.moveToName != nil {
+                let moveToField = form.fields.first(where: { $0.name == message.moveToName })
+                if let moveToField = moveToField {
+                    fieldState[currentFieldName]?.moveToName = moveToField.name
+                    resolved = true
+                }
+            }
+        }
+        if resolved == true {
+            let output = message.data ?? getResponseOutput(field: field, fieldState: fieldState[currentFieldName]!)
+            addCurrentFieldToFieldHistory(input: nil, genReply: message.data)
+            addCurrentFieldToVisitHistory()
+            emitEvent(.audioOutMessage, output)
+            emitEvent(.resumeListening, nil)
+            moveToNextField()
+            return
+        }
+        // basically after our hot checks we can mark fields that dont require validate as valid
+        print("CHECKING HOT PHRASE RESOLVED STUFF \(allHotPhrasesResolved()) \(fieldState[currentFieldName]?.genReplyRunning)")
+        if allHotPhrasesResolved() && fieldState[currentFieldName]?.genReplyRunning != true {
+            fieldState[currentFieldName]?.valid = true
+            let output = getResponseOutput(field: field, fieldState: fieldState[currentFieldName]!)
+            emitEvent(.audioOutMessage, output)
+            emitEvent(.resumeListening, nil)
+            moveToNextField()
+        }
+    }
 
     private func genReplyMessageReceived(message: WebSocketServerMessage) {
         genReplyMessageQueue.append(message)
         processNextGenReplyMessage()
     }
     private func processNextGenReplyMessage() {
-        guard !isProcessingGenReply, !genReplyQueue.isEmpty else { return }
+        guard !isProcessingGenReply, !genReplyMessageQueue.isEmpty else { return }
 
         isProcessingGenReply = true
-        let message = genReplyQueue.removeFirst()
-        
-        // from older genReply, we have already moved on.
+        let message = genReplyMessageQueue.removeFirst()
         if message.fieldName != currentFieldName {
+            VeConfig.vePrint("VECONVO: Message is for a different field: \(message.fieldName) \(currentFieldName)")
             isProcessingGenReply = false
             processNextGenReplyMessage()
             return
         }
-        if message.type == SERVER_TO_CLIENT_MESSAGES.hotPhraseResponse {
-            let field = form.fields.first(where: { $0.name == currentFieldName })
-            if message.skip == true {
-                fieldState[currentFieldName]?.skip = true
-            } else if message.last == true {
-                fieldState[currentFieldName]?.last = true
-            } else if message.end == true {
-                fieldState[currentFieldName]?.end = true
-            } else if message.moveToName != nil {
-                let moveToField = form.fields.first(where: { $0.name == message.moveToName })
-                if let moveToField = moveToField {
-                    fieldState[currentFieldName]?.moveToName = moveToField.name
-                }
-                fieldState[currentFieldName]?.moveToName = message.moveToName
-            }
-            let output = getResponseOutput(field: field, fieldState: fieldState[currentFieldName]!)
-            emitEvent(.audioOutMessage, output)
-            moveToNextField()
+        VeConfig.vePrint("VECONVO: Processing message \(message.fieldName) \(currentFieldName): \(message.type) \(message.data ?? "")")
+
+        if isHotPhraseMessage(type: message.type) {
+            handleHotPhraseMessage(message: message)
             isProcessingGenReply = false
             processNextGenReplyMessage()
             return
         }
 
-        if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyStart {
-            isProcessingGenReply = false
-            processNextGenReplyMessage()
-            return
-        }
         if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyChunk {
             VeConfig.vePrint("VECONVO: Outputting Gen sentence: \(message.data ?? "No data")")
             emitEvent(.audioOutMessage, message.data ?? "")
@@ -438,8 +502,9 @@ class VeConversation {
             processNextGenReplyMessage()
             return
         }
+
         if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyEnd {
-            emitEvent(.genReplyRequestEnd, nil)
+            emitEvent(.resumeListening, nil)
             let field = form.fields.first(where: { $0.name == currentFieldName })
             fieldState[currentFieldName]?.valid = message.valid == true ? true : false
             fieldState[currentFieldName]?.validYes = message.validYes == true ? true : false
@@ -470,6 +535,7 @@ class VeConversation {
                     fieldState[currentFieldName]?.valid = false
                 }
             }
+            fieldState[currentFieldName]?.genReplyRunning = false
             addCurrentFieldToVisitHistory()
             addCurrentFieldToFieldHistory(input: nil, genReply: message.data)
             moveToNextField()

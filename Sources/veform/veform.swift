@@ -121,9 +121,13 @@ public class Veform {
         } else if event == .audioOutMessage {
             guard let data = data else { return }
             audio.output(data)
-        } else if event == .genReplyRequestStart {
-            audio.pauseListening()
-        } else if event == .genReplyRequestEnd {
+        // we can revisit this logic if we get into more shenanigans where user 
+        // speaks during conversation, I guess we do need to like block input once it starts
+        } else if event == .pauseListening {
+            print("VEFORM: pauseListening")
+           audio.pauseListening()
+        } else if event == .resumeListening {
+            print("VEFORM: resumeListening")
             audio.resumeListening()
         } else if event == .error {
             VeConfig.vePrint("VEFORM: ERROR: \(data ?? "Unknown error")")

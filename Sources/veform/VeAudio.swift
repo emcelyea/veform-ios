@@ -160,17 +160,20 @@ class VeAudio: NSObject {
         isPausedListening = false
         if !isSpeakingOutput { emitEvent?(.listening, nil) }
     }
+    func isPaused() -> Bool {
+        return isPausedListening
+    }
     func bufferOutput(_ text: String) {
         speechBuffer += text
     }
 
     func output(_ text: String, block: Bool? = nil, purge: Bool? = nil) {
-            if blockOutput && !(purge ?? false) {
-        return
-    }
-    if block ?? false {
-        blockOutput = true
-    }
+        if blockOutput && !(purge ?? false) {
+            return
+        }
+        if block ?? false {
+            blockOutput = true
+        }
         if isSpeakingOutput {
             if purge ?? false {
                 synthesizer.stopSpeaking(at: .immediate)
@@ -300,14 +303,18 @@ extension VeAudio: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_: AVSpeechSynthesizer, didFinish _: AVSpeechUtterance) {
         isSpeakingOutput = false
         blockOutput = false
+        print("VEAUDIO: Speech synthesizer did finish")
         if speechBuffer.count > 0 {
+            print("VEAUDIO: emitting contents of speechBuffer: \(speechBuffer)")
             output(speechBuffer)
             speechBuffer = ""
         } else {
             if stopAfterOutput {
+                print("VEAUDIO: stoppingAfterOutput")
                 stopOutput()
                 try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             } else {
+                print("VEAUDIO: not stoppingAfterOutput paused:\(isPausedListening)")
                 if !isPausedListening { emitEvent?(.listening, nil) }
             }
         }
