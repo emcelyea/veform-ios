@@ -29,7 +29,7 @@ public class FormBuilder {
             let lastFieldIndex = form.fields.count - 1
             if form.fields[lastFieldIndex].eventConfig[.eventValidAnswer]?.contains(where: { $0.type == .behaviorMoveTo }) == false {
                 var lastField = form.fields[lastFieldIndex]
-                lastField.addBehavior(event: .eventValidAnswer, behavior: FieldBehavior(type: .behaviorMoveTo, moveToFieldNames: [name]))
+                lastField.addBehavior(event: .eventValidAnswer, behavior: FieldBehavior(type: .behaviorMoveTo, moveToFieldName: name))
                 form.fields[lastFieldIndex] = lastField
             }
         }

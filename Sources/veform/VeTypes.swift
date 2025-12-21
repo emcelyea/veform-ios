@@ -59,6 +59,69 @@ public struct ConversationStateEntry {
 
 public typealias ConversationState = [ConversationStateEntry]
 
+struct GenReplyRequest: Codable {
+    let fieldName: String
+    let fieldHistory: [FieldHistory]
+}
+
+struct HotPhraseRequest: Codable {
+    let fieldName: String
+    let question: String
+    let input: String
+}
+
+struct FieldHistory: Codable {
+    var name: String
+    var type: FieldTypes
+    var valid: Bool
+    var answer: String?
+    var genReply: String?
+}
+
+struct FieldState {
+    var name: String
+    var valid: Bool
+    var visitCount: Int
+    var validYes: Bool?
+    var validNo: Bool?
+    var number: Double?
+    var selectOption: SelectOption?
+    var selectOptions: [SelectOption]?
+    var textarea: String?
+    var skip: Bool?
+    var last: Bool?
+    var end: Bool?
+    var moveToName: String?
+    var hotPhraseSkipResolved: Bool?
+    var hotPhraseLastResolved: Bool?
+    var hotPhraseEndResolved: Bool?
+    var hotPhraseMoveToResolved: Bool?
+    var genReplyRunning: Bool?
+    init(
+        name: String,
+        valid: Bool,
+        visitCount: Int,
+        validYes: Bool? = nil,
+        validNo: Bool? = nil,
+        selectOption: SelectOption? = nil,
+        skip: Bool? = nil,
+        last: Bool? = nil,
+        end: Bool? = nil,
+        moveToName: String? = nil
+    ) {
+        self.name = name
+        self.valid = valid
+        self.visitCount = visitCount
+        self.validYes = validYes
+        self.validNo = validNo
+        self.selectOption = selectOption
+        self.skip = skip
+        self.last = last
+        self.end = end
+        self.moveToName = moveToName
+    }
+}
+
 public enum FieldTypes: String, Codable {
     case textarea
     case select
@@ -196,10 +259,6 @@ public enum FieldEvent: String, Codable {
     case eventRevisitAfterUnresolved
 }
 
-public enum FieldEventModifier: String, Codable {
-    case modifierFieldsUnresolved
-}
-
 public enum BehaviorType: String, Codable {
     case behaviorMoveToLast // jump back to question before this one, use to build more complex flows
     case behaviorOutput // output a string
@@ -210,16 +269,14 @@ public enum BehaviorType: String, Codable {
 
 public struct FieldBehavior: Codable {
     public let type: BehaviorType
-    public let moveToFieldNames: [String]?
+    public let moveToFieldName: String?
     public let resolvesField: Bool?
     public let output: String?
-    public let modifier: FieldEventModifier?
-    public init(type: BehaviorType, moveToFieldNames: [String]? = nil, resolvesField: Bool? = true, output: String? = nil, modifier: FieldEventModifier? = nil) {
+    public init(type: BehaviorType, moveToFieldName: String? = nil, resolvesField: Bool? = true, output: String? = nil) {
         self.type = type
-        self.moveToFieldNames = moveToFieldNames
+        self.moveToFieldName = moveToFieldName
         self.resolvesField = resolvesField
         self.output = output
-        self.modifier = modifier
     }
 }
 
