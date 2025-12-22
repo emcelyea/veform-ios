@@ -52,9 +52,8 @@ class VeConversation {
         genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.setupForm, data: form)
         VeConfig.vePrint("VECONVO: Starting conversation")
         let initialQuestion: String = getFieldQuestion(fieldName: currentFieldName)
-        let initialQuestionAppend: String = getFieldQuestionAppend(fieldName: currentFieldName)
-        VeConfig.vePrint("VECONVO: Initial question: \(initialQuestion + initialQuestionAppend)")
-        emitEvent(.audioOutMessage, initialQuestion + initialQuestionAppend)
+        VeConfig.vePrint("VECONVO: Initial question: \(initialQuestion)")
+        emitEvent(.audioOutMessage, initialQuestion)
         let field = form.fields.first(where: { $0.name == currentFieldName })
         if field?.type == .info {
             fieldState[currentFieldName]?.valid = true
@@ -65,7 +64,6 @@ class VeConversation {
     func stop() {
         genReply.tewyWebsockets?.closeConnection()
     }
-    // FINISH GETRESPONSEOUTPUT ABSTRACTION
     // FINISH VEAUDIO MOVE IN
     // BUILD OUR INTERNAL VECONVERSATION EVENT LOOP
     // BUILD EVENT EXPOSURE IN VEFORM AND ALLOW IT TO CANCEL VECONVO DEFAULT HANDLERS
@@ -161,8 +159,7 @@ class VeConversation {
             // consumers to hook into rather than for us to handle
             emitEvent(.fieldChanged, currentFieldName)
             let nextQuestion = getFieldQuestion(fieldName: nextField.name)
-            let nextQuestionAppend: String = getFieldQuestionAppend(fieldName: nextField.name)
-            emitEvent(.audioOutMessage, nextQuestion + nextQuestionAppend)
+            emitEvent(.audioOutMessage, nextQuestion)
             if field.type == .info {
                 fieldState[nextField.name]?.valid = true
                 moveToNextField()
@@ -187,11 +184,13 @@ class VeConversation {
         genReplyMessageQueue.append(message)
         processNextGenReplyMessage()
     }
+
     private func processNextGenReplyMessage() {
         guard !isProcessingGenReply, !genReplyMessageQueue.isEmpty else { return }
 
         isProcessingGenReply = true
-        let message = genReplyMessageQueue.removeFirst()        
+        let message = genReplyMessageQueue.removeFirst()
+        // abort if field !exists      
         guard let field = form.fields.first(where: { $0.name == message.fieldName }), let state = fieldState[message.fieldName ?? ""] else {
             VeConfig.vePrint("VECONVO: Error, field \(message.fieldName) not found")
             isProcessingGenReply = false
@@ -199,7 +198,7 @@ class VeConversation {
             return
         }
 
-        // discard messages that refer to previous fields
+        // abort if message is !for currentField
         if message.fieldName != currentFieldName {
             VeConfig.vePrint("VECONVO: Message is for a different field: \(message.fieldName) \(currentFieldName)")
             isProcessingGenReply = false
@@ -247,40 +246,6 @@ class VeConversation {
         }
         isProcessingGenReply = false
         processNextGenReplyMessage()
-    }
-
-    private func getFieldQuestion(fieldName: String) -> String {
-        let fieldState = fieldState[fieldName]
-        let field = form.fields.first(where: { $0.name == fieldName })
-        if fieldState?.visitCount == 0 {
-            let behaviorOutput = field?.eventConfig[.eventInitialQuestion]?.filter { $0.type == .behaviorOutput } ?? []
-            if behaviorOutput.count > 0 {
-                return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
-            }
-        }
-        if fieldState?.valid == true {
-            let behaviorOutput = field?.eventConfig[.eventRevisitAfterResolved]?
-                .filter { $0.type == .behaviorOutput } ?? []
-            if behaviorOutput.count > 0 {
-                return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
-            }
-        }
-        if fieldState?.valid == false {
-            let behaviorOutput = field?.eventConfig[.eventRevisitAfterUnresolved]?
-                .filter { $0.type == .behaviorOutput } ?? []
-            if behaviorOutput.count > 0 {
-                return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
-            }
-        }
-        return field?.question ?? ""
-    }
-
-    private func getFieldQuestionAppend(fieldName: String) -> String {
-        let field = form.fields.first(where: { $0.name == fieldName })
-        let selectOptionList = field?.validation.selectOptions?.filter { $0.readAloud == true }.map { $0.label } ?? []
-        let selectOptionListAppend = selectOptionList
-            .count > 0 ? " The options are: \(selectOptionList.joined(separator: ", "))." : ""
-        return selectOptionListAppend
     }
 
     private func addCurrentFieldToFieldHistory(input: String?, genReply: String?) {
@@ -338,9 +303,7 @@ class VeConversation {
         )
     }
 
-    func getConversationState() -> ConversationState {
-        return buildFullConversationState()
-    }
+
 
     private func endForm() {
         addCurrentFieldToVisitHistory()
@@ -390,7 +353,7 @@ class VeConversation {
         return completeEntries
     }
 
-    private func buildFullConversationState() -> ConversationState {
+    private func getConversationState() -> ConversationState {
         var conversationState: ConversationState = []
         for field in form.fields {
             let answer = getAnswerFromFieldState(fieldState: fieldState[field.name]!, field: field)

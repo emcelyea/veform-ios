@@ -1,6 +1,6 @@
 //
-//  File.swift
-//  
+//  VeUtils.swift
+//
 //
 //  Created by Eric McElyea on 12/20/25.
 //
@@ -110,12 +110,12 @@ func fieldStateFromConversationState(field: Field, state: ConversationStateEntry
     let answerString: String
     let answerDouble: Double?
     switch state.answer {
-        case let .string(text):
-            answerString = text
-            answerDouble = Double(text)
-        case let .double(number):
-            answerString = String(number)
-            answerDouble = number
+    case let .string(text):
+        answerString = text
+        answerDouble = Double(text)
+    case let .double(number):
+        answerString = String(number)
+        answerDouble = number
     }
     if field.type == .yesNo {
         fieldState.validYes = answerString == "yes" ? true : false
@@ -205,8 +205,6 @@ func getResponseOutput(field: Field, fieldState: FieldState) -> String {
     return outputsAcknowledgeSuccess.randomElement() ?? ""
 }
 
-
-
 func updateStateFromMessage(message: WebSocketServerMessage, field: Field, fieldState: FieldState) -> FieldState {
     var updatedFieldState = fieldState
     if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyStart {
@@ -270,4 +268,34 @@ func updateStateFromMessage(message: WebSocketServerMessage, field: Field, field
         return updatedFieldState
     }
     return updatedFieldState
+}
+
+func getFieldQuestion(field: Field, fieldState: FieldState) -> String {
+    if fieldState?.visitCount == 0 {
+        let behaviorOutput = field?.eventConfig[.eventInitialQuestion]?.filter { $0.type == .behaviorOutput } ?? []
+        if behaviorOutput.count > 0 {
+            return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
+        }
+    }
+    if fieldState?.valid == true {
+        let behaviorOutput = field?.eventConfig[.eventRevisitAfterResolved]?
+            .filter { $0.type == .behaviorOutput } ?? []
+        if behaviorOutput.count > 0 {
+            return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
+        }
+    }
+    if fieldState?.valid == false {
+        let behaviorOutput = field?.eventConfig[.eventRevisitAfterUnresolved]?
+            .filter { $0.type == .behaviorOutput } ?? []
+        if behaviorOutput.count > 0 {
+            return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
+        }
+    }
+    var append = ""
+    if field.type == .select || field.type == .multiselect {
+        let selectOptionList = field?.validation.selectOptions?.filter { $0.readAloud == true }.map { $0.label } ?? []
+        append = selectOptionList
+            .count > 0 ? " The options are: \(selectOptionList.joined(separator: ", "))." : ""
+    }
+    return "\(field.question ?? "") \(append)"
 }
