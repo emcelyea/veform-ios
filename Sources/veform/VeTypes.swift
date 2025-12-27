@@ -27,19 +27,17 @@ public enum ConversationEvent: String {
     case loadingFinished
     case runningStarted
     case runningFinished
+    case audioInStart
     case audioInChunk
-    case audioInMessage
-    case audioOutChunk
-    case audioOutMessage
+    case audioInEnd
+    case audioOutStart
+    case audioOutEnd
     case listening
     case speaking
     case fieldChanged
-    case pauseListening
-    case resumeListening
-    case websocketSetup
-    case audioSetup
     case error
 }
+
 
 public struct ConversationStateEntry {
     public let name: String

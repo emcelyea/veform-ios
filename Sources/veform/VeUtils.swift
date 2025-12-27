@@ -6,7 +6,12 @@
 //
 
 import Foundation
-
+/**
+ OK TOMORRW JUST RUN THIS AND THEN START DEBUGGING AND SHIT
+  ONCE THIS IS ALL CLEAR WE CAN START WORKING ON WHISPER AND
+ BACKEND AUDIO GENEARTION
+ 
+ */
 func getNextFieldFromFieldState(currentFieldState: FieldState, form: Form, visitHistory: [FieldState]) -> Field? {
     let field = form.fields.first(where: { $0.name == currentFieldState.name })
     guard let field = field else {
@@ -271,21 +276,21 @@ func updateStateFromMessage(message: WebSocketServerMessage, field: Field, field
 }
 
 func getFieldQuestion(field: Field, fieldState: FieldState) -> String {
-    if fieldState?.visitCount == 0 {
-        let behaviorOutput = field?.eventConfig[.eventInitialQuestion]?.filter { $0.type == .behaviorOutput } ?? []
+    if fieldState.visitCount == 0 {
+        let behaviorOutput = field.eventConfig[.eventInitialQuestion]?.filter { $0.type == .behaviorOutput } ?? []
         if behaviorOutput.count > 0 {
             return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
         }
     }
-    if fieldState?.valid == true {
-        let behaviorOutput = field?.eventConfig[.eventRevisitAfterResolved]?
+    if fieldState.valid == true {
+        let behaviorOutput = field.eventConfig[.eventRevisitAfterResolved]?
             .filter { $0.type == .behaviorOutput } ?? []
         if behaviorOutput.count > 0 {
             return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
         }
     }
-    if fieldState?.valid == false {
-        let behaviorOutput = field?.eventConfig[.eventRevisitAfterUnresolved]?
+    if fieldState.valid == false {
+        let behaviorOutput = field.eventConfig[.eventRevisitAfterUnresolved]?
             .filter { $0.type == .behaviorOutput } ?? []
         if behaviorOutput.count > 0 {
             return behaviorOutput.map { $0.output ?? "" }.joined(separator: "\n")
@@ -293,7 +298,7 @@ func getFieldQuestion(field: Field, fieldState: FieldState) -> String {
     }
     var append = ""
     if field.type == .select || field.type == .multiselect {
-        let selectOptionList = field?.validation.selectOptions?.filter { $0.readAloud == true }.map { $0.label } ?? []
+        let selectOptionList = field.validation.selectOptions?.filter { $0.readAloud == true }.map { $0.label } ?? []
         append = selectOptionList
             .count > 0 ? " The options are: \(selectOptionList.joined(separator: ", "))." : ""
     }

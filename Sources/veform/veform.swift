@@ -13,8 +13,8 @@ struct ConversationSetupState {
     var pipeGenReply: Bool
 }
 
-struct VeConfig {
-    static var verbose: Bool = false
+public struct VeConfig {
+    public static var verbose: Bool = false
     static func vePrint(_ message: String) {
         if VeConfig.verbose {
             print(message)
@@ -24,154 +24,224 @@ struct VeConfig {
 
 public class Veform {
     var form: Form?
-    private var isWebsocketSetup: Bool = false
-    private var isAudioSetup: Bool = false
-    private var lastConversationEvent: ConversationEvent?
-    private var audio: VeAudio!
     private var conversation: VeConversation!
-    private var state: ConversationSetupState = .init(setupComplete: false,
-                                                      lastConversationEvent: nil,
-                                                      pipeGenReply: false)
-    // todo later, make this clalback like way more useful, i.e. event current, last                                                
-    private var parentCallback: ((ConversationEvent, ConversationStateEntry?) -> Void)?
-    private var parentCompleteCallback: ((ConversationState) -> Void)?
+    private let eventHandlers = VeformEventHandlers()
+    private var loaded: Bool = false
     public init() {}
 
     public func start(form: Form) {
         self.form = form
-        handleEvent(event: .loadingStarted)
         VeConfig.vePrint("VEFORM: Starting veform")
-        audio = VeAudio(emitEvent: self.handleEvent)
-        conversation = VeConversation(form: form, emitEvent: self.handleEvent, onComplete: self.end)
-    }
-
-    public func setLogging(verbose: Bool) {
-        VeConfig.verbose = verbose
+        conversation = VeConversation(form: form, eventHandlers: eventHandlers)
     }
 
     public func stop() {
-        audio?.stop()
         conversation?.stop()
     }
 
-    public func pauseOutput() {
-        audio?.pauseOutput()
-    }
-
-    public func resumeOutput() {
-        audio?.resumeOutput()
-    }
-
-    public func pauseListening() {
-        audio?.pauseListening()
-    }
-
-    public func resumeListening() {
-        audio?.resumeListening()
-    }
+//    public func pauseOutput() {
+//        audio?.pauseOutput()
+//    }
+//
+//    public func resumeOutput() {
+//        audio?.resumeOutput()
+//    }
+//
+//    public func pauseListening() {
+//        audio?.pauseListening()
+//    }
+//
+//    public func resumeListening() {
+//        audio?.resumeListening()
+//    }
 
     public func setCurrentField(name: String) {
         conversation?.setCurrentField(name: name)
     }
 
-    public func getConversationState() -> ConversationState {
-        return conversation.getConversationState()
-    }
+//    public func getConversationState() -> ConversationState {
+//        return conversation.getConversationState()
+//    }
 
     public func setFieldState(name: String, state: ConversationStateEntry) {
         conversation.setFieldState(name: name, state: state)
     }
-
-    public func onEvent(callback: @escaping (ConversationEvent, ConversationStateEntry?) -> Void) {
-        parentCallback = callback
+    
+    public func onLoadingStarted(callback: @escaping () -> Void) {
+        eventHandlers.onLoadingStarted = callback
     }
 
+    public func onLoadingFinished(callback: @escaping () -> Void) {
+        eventHandlers.onLoadingFinished = callback
+    }
+
+    public func onRunningStarted(callback: @escaping () -> Void) {
+        eventHandlers.onRunningStarted = callback
+    }
+
+    public func onRunningFinished(callback: @escaping () -> Void) {
+        eventHandlers.onRunningFinished = callback
+    }
+
+    public func onAudioInStart(callback: @escaping () -> Void) {
+        eventHandlers.onAudioInStart = callback
+    }
+    public func onAudioInChunk(callback: @escaping (String) -> Void) {
+        eventHandlers.onAudioInChunk = callback
+    }
+    public func onAudioInEnd(callback: @escaping (String) -> Void) {
+        eventHandlers.onAudioInEnd = callback
+    }
+    public func onAudioOutStart(callback: @escaping (String) -> Bool?) {
+        eventHandlers.onAudioOutStart = callback
+    }
+    public func onAudioOutEnd(callback: @escaping () -> Void) {
+        eventHandlers.onAudioOutEnd = callback
+    }
+    public func onListening(callback: @escaping () -> Void) {
+        eventHandlers.onListening = callback
+    }
+    public func onSpeaking(callback: @escaping () -> Void) {
+        eventHandlers.onSpeaking = callback
+    }
+    public func onFieldChanged(callback: @escaping (_ previous: ConversationStateEntry, _ next: ConversationStateEntry) -> Bool?) {
+        eventHandlers.onFieldChanged = callback
+    }
     public func onComplete(callback: @escaping (ConversationState) -> Void) {
-        parentCompleteCallback = callback
+        eventHandlers.onComplete = callback
     }
-
-    func end(fields: ConversationState) {
-        if let parentCompleteCallback = parentCompleteCallback {
-            parentCompleteCallback(fields)
-        }
-        audio.stopWhenDone()
-        conversation.stop()
-        handleEvent(event: .runningFinished)
+    public func onError(callback: @escaping (String) -> Void) {
+        eventHandlers.onError = callback
     }
+}
 
-    func handleEvent(event: ConversationEvent, data: String? = nil) {
-        if event == .websocketSetup {
-            isWebsocketSetup = true
-            if shouldSendInitialMessage() {
-                handleEvent(event: .loadingFinished)
-                handleEvent(event: .runningStarted)
-                conversation.start()
-            }
-        } else if event == .audioSetup {
-            isAudioSetup = true
-            if shouldSendInitialMessage() {
-                handleEvent(event: .loadingFinished)
-                handleEvent(event: .runningStarted)
-                conversation.start()
-            }
-        } else if event == .audioInMessage {
-            if !state.setupComplete { return }
-            guard let data = data else { return }
-            conversation.inputReceived(input: data)
-        } else if event == .audioOutMessage {
-            guard let data = data else { return }
-            audio.output(data)
-        // we can revisit this logic if we get into more shenanigans where user 
-        // speaks during conversation, I guess we do need to like block input once it starts
-        } else if event == .pauseListening {
-            print("VEFORM: pauseListening")
-           audio.pauseListening()
-        } else if event == .resumeListening {
-            print("VEFORM: resumeListening")
-            audio.resumeListening()
-        } else if event == .error {
-            VeConfig.vePrint("VEFORM: ERROR: \(data ?? "Unknown error")")
-            if isAudioSetup {
-                audio.output("We are having an issue please try again later.", block:true, purge:true)
-                audio.stopWhenDone()
-                handleEvent(event: .runningFinished)
-            }
-            if isWebsocketSetup {
-                conversation.stop()
-                handleEvent(event: .runningFinished)
+
+public class VeformEventHandlers {
+    var onLoadingStarted: (() -> Void)?
+    var onLoadingFinished: (() -> Void)?
+    var onRunningStarted: (() -> Void)?
+    var onRunningFinished: (() -> Void)?
+    var onAudioInStart: (() -> Void)?
+    var onAudioInChunk: ((String) -> Void)?
+    var onAudioInEnd: ((String) -> Void)?
+    var onAudioOutStart: ((String) -> Bool?)?
+    var onAudioOutEnd: (() -> Void)?
+    var onListening: (() -> Void)?
+    var onSpeaking: (() -> Void)?
+    var onFieldChanged: ((_ previous: ConversationStateEntry, _ next: ConversationStateEntry) -> Bool?)?
+    var onError: ((String) -> Void)?
+    var onComplete: ((ConversationState) -> Void)?
+    
+    func loadingStarted() {
+        if let handler = onLoadingStarted {
+            DispatchQueue.main.async {
+                handler()
             }
         }
-        if parentCallback != nil, event != .audioSetup, event != .websocketSetup {
-            print("veform, passing event to parent: \(event)")
-            if event == .loadingStarted {
-                print("veform, passing loading started to parent")
-                DispatchQueue.main.async {[weak self] in
-                    self?.parentCallback?(event, nil)
-                }
-            }
-            if !state.setupComplete { return }
-            let fieldBeforeEvent = conversation.getCurrentField()
-            let stateEntry = conversation.getFieldStateEntry(name: fieldBeforeEvent?.name ?? "")
-            guard let stateEntry = stateEntry else {
-                VeConfig.vePrint("VEFORM: State entry not found")
-                return
-            }
-            DispatchQueue.main.async { [weak self] in
-                self?.parentCallback?(event, stateEntry)
+    }
+    
+    func loadingFinished() {
+        if let handler = onLoadingFinished {
+            DispatchQueue.main.async {
+                handler()
             }
         }
-   
     }
-
-    func shouldSendInitialMessage() -> Bool {
-        let isSetupComplete = isWebsocketSetup && isAudioSetup
-        if isSetupComplete {
-            if state.setupComplete {
-                return false
+    
+    func runningStarted() {
+        if let handler = onRunningStarted {
+            DispatchQueue.main.async {
+                handler()
             }
-            state.setupComplete = true
-            return true
+        }
+    }
+    
+    func runningFinished() {
+        if let handler = onRunningFinished {
+            DispatchQueue.main.async {
+                handler()
+            }
+        }
+    }
+    
+    func audioInStart() -> Void {
+        if let handler = onAudioInStart {
+            DispatchQueue.main.async {
+                handler()
+            }
+        }
+    }
+    
+    func audioInChunk(_ data: String) -> Void {
+        if let handler = onAudioInChunk {
+            DispatchQueue.main.async {
+                handler(data)
+            }
+        }
+    }
+    
+    func audioInEnd(_ data: String) -> Void {
+        if let handler = onAudioInEnd {
+            DispatchQueue.main.async {
+                handler(data)
+            }
+        }
+    }
+    
+    func audioOutStart(_ data: String) -> Bool? {
+        if let handler = onAudioOutStart {
+            DispatchQueue.main.sync {
+                return handler(data)
+            }
         }
         return false
+    }
+    
+    func audioOutEnd() -> Void {
+        if let handler = onAudioOutEnd {
+            DispatchQueue.main.async {
+                handler()
+            }
+        }
+    }
+    
+    func listening() {
+        if let handler = onListening {
+            DispatchQueue.main.async {
+                handler()
+            }
+        }
+    }
+    
+    func speaking() {
+        if let handler = onSpeaking {
+            DispatchQueue.main.async {
+                handler()
+            }
+        }
+    }
+    
+    func fieldChanged(previous: ConversationStateEntry, next: ConversationStateEntry) -> Bool? {
+        if let handler = onFieldChanged {
+            DispatchQueue.main.sync {
+                return handler(previous, next)
+            }
+        }
+        return false
+    }
+    
+    func complete(conversationState: ConversationState) {
+        if let handler = onComplete {
+            DispatchQueue.main.async {
+                handler(conversationState)
+            }
+        }
+    }
+    func error(error: String) {
+        if let handler = onError {
+            DispatchQueue.main.async {
+                handler(error)
+            }
+        }
     }
 }

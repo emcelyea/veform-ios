@@ -21,7 +21,6 @@ class VeAudio: NSObject {
     private var silenceTimeout: TimeInterval = 2
     private var lastTextChunkEndIndex: Int = 0
     private var lastTextMessageEndIndex: Int = 0
-    private var emitEvent: ((ConversationEvent, String?) -> Void)?
     private var speechBuffer: String = ""
     private var isTapInstalled: Bool = false
     private var isSpeakingOutput: Bool = false
@@ -29,11 +28,10 @@ class VeAudio: NSObject {
     private var preferredVoice: AVSpeechSynthesisVoice?
     private var stopAfterOutput: Bool = false
     private var blockOutput: Bool = false
-    private var debug: Bool = false
-    init(emitEvent: @escaping (ConversationEvent, String?) -> Void, debug: Bool = false) {
-        self.emitEvent = emitEvent
+    private var eventHandlers: VeAudioEventHandlers
+    init(eventHandlers: VeAudioEventHandlers) async {
+        self.eventHandlers = eventHandlers
         speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "en-US"))
-        self.debug = debug
         super.init()
         synthesizer.delegate = self
         lastTextChunkEndIndex = 0
@@ -62,7 +60,6 @@ class VeAudio: NSObject {
                 }
             }
             configureAudioSession()
-            emitEvent(.audioSetup, nil)
             startListening()
         }
     }
@@ -158,7 +155,7 @@ class VeAudio: NSObject {
     }
     func resumeListening() {
         isPausedListening = false
-        if !isSpeakingOutput { emitEvent?(.listening, nil) }
+        if !isSpeakingOutput { eventHandlers.listening() }
     }
     func isPaused() -> Bool {
         return isPausedListening
@@ -186,8 +183,10 @@ class VeAudio: NSObject {
                 return
             }
         }
+        let result = eventHandlers.audioOutStart(text)
+        if result == true { return }
         isSpeakingOutput = true
-        emitEvent?(.speaking, nil)
+        eventHandlers.speaking()
         let optimizedText = optimizeOutput(text: " " + text)
         let utterance = AVSpeechUtterance(string: optimizedText)
         utterance.voice = AVSpeechSynthesisVoice(language: "en-US")
@@ -205,7 +204,7 @@ class VeAudio: NSObject {
     func pauseOutput() {
         synthesizer.pauseSpeaking(at: .immediate)
         isSpeakingOutput = false
-        emitEvent?(.listening, nil)
+        eventHandlers.listening()
     }
     func resumeOutput() {
         synthesizer.continueSpeaking()
@@ -249,14 +248,14 @@ class VeAudio: NSObject {
                     let text = result.bestTranscription.formattedString
                     let nextChunk = String(text.dropFirst(self.lastTextChunkEndIndex))
                     self.lastTextChunkEndIndex += nextChunk.count
-                    self.emitEvent?(.audioInChunk, nextChunk)
+                    self.eventHandlers.audioInChunk(nextChunk)
                     silenceTimer?.invalidate()
                     silenceTimer = nil
                     silenceTimer = Timer
                         .scheduledTimer(withTimeInterval: silenceTimeout, repeats: false) { [weak self] _ in
                             let nextMessage = String(text.dropFirst(self?.lastTextMessageEndIndex ?? 0))
                             self?.lastTextMessageEndIndex += nextMessage.count
-                            self?.emitEvent?(.audioInMessage, nextMessage)
+                            self?.eventHandlers.audioInEnd(nextMessage)
                         }
 
                     if let error = error {
@@ -303,6 +302,7 @@ extension VeAudio: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_: AVSpeechSynthesizer, didFinish _: AVSpeechUtterance) {
         isSpeakingOutput = false
         blockOutput = false
+        eventHandlers.audioOutEnd()
         print("VEAUDIO: Speech synthesizer did finish")
         if speechBuffer.count > 0 {
             print("VEAUDIO: emitting contents of speechBuffer: \(speechBuffer)")
@@ -315,7 +315,7 @@ extension VeAudio: AVSpeechSynthesizerDelegate {
                 try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             } else {
                 print("VEAUDIO: not stoppingAfterOutput paused:\(isPausedListening)")
-                if !isPausedListening { emitEvent?(.listening, nil) }
+                if !isPausedListening { eventHandlers.listening() }
             }
         }
     }
@@ -325,4 +325,51 @@ extension VeAudio: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_: AVSpeechSynthesizer, didContinue _: AVSpeechUtterance) {}
 
     func speechSynthesizer(_: AVSpeechSynthesizer, didCancel _: AVSpeechUtterance) {}
+}
+
+
+class VeAudioEventHandlers {
+    var onAudioInStart: (() -> Void)?
+    var onAudioInChunk: ((String) -> Void)?
+    var onAudioInEnd: ((String) -> Void)?
+    var onAudioOutStart: ((String) -> Bool?)?
+    var onAudioOutEnd: (() -> Void)?
+    var onListening: (() -> Void)?
+    var onSpeaking: (() -> Void)?
+    func listening() {
+        if let handler = onListening {
+            handler()
+        }
+    }
+    func speaking() {
+        if let handler = onSpeaking {
+            handler()
+        }
+    }
+    func audioInStart() {
+        if let handler = onAudioInStart {
+            handler()
+        }
+    }
+    func audioInChunk(_ data: String) {
+        if let handler = onAudioInChunk {
+            handler(data)
+        }
+    }
+    func audioInEnd(_ data: String) {
+        if let handler = onAudioInEnd {
+            handler(data)
+        }
+    }
+    func audioOutStart(_ data: String) -> Bool? {
+        if let handler = onAudioOutStart {
+            return handler(data)
+        }
+        return false
+    }
+    func audioOutEnd() {
+        if let handler = onAudioOutEnd {
+            handler()
+        }
+    }
 }

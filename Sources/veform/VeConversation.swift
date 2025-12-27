@@ -8,54 +8,72 @@ class VeConversation {
     var form: Form
     var genReply: GenReply
 
-    private var emitEvent: ((ConversationEvent, String?) -> Void) = { _, _ in }
-    private var onComplete: (ConversationState) -> Void
-
     private let punctuationCharacters = [".", "!", "?", ";"]
     private var currentFieldName: String
     private var initialFieldName: String
     private var fieldState: [String: FieldState] = [:]
     private var visitHistory: [FieldState] = []
     private var fieldHistory: [FieldHistory] = []
+    private var audio: VeAudio!
+    private var audioEventHandlers: VeAudioEventHandlers
+    private weak var eventHandlers: VeformEventHandlers?
 
     private var genReplyMessageQueue: [WebSocketServerMessage] = []
     private var isProcessingGenReply: Bool = false
 
     init(
         form: Form,
-        emitEvent: @escaping (ConversationEvent, String?) -> Void,
-        onComplete: @escaping (ConversationState) -> Void
+        eventHandlers: VeformEventHandlers
     ) {
+        // NEXT TIME CLEAR UP THESE AUDIO EVENT HANDLER PASSINGS UR ALL CONFUSED AND 
+        // STUPID LOL
+        print("VECONVO: Initializing conversation")
         self.form = form
-        self.emitEvent = emitEvent
-        self.onComplete = onComplete
+        self.eventHandlers = eventHandlers
+        self.audioEventHandlers = VeAudioEventHandlers()
+
+        eventHandlers.loadingStarted()
         genReply = GenReply(form: form)
         initialFieldName = self.form.fields[0].name
         currentFieldName = self.form.fields[0].name
         for field in form.fields {
             fieldState[field.name] = FieldState(name: field.name, valid: false, visitCount: 0)
         }
+        self.audioEventHandlers.onAudioInStart = self.onAudioInStart
+        self.audioEventHandlers.onAudioInChunk = self.onAudioInChunk
+        self.audioEventHandlers.onAudioInEnd = self.onAudioInEnd
+        self.audioEventHandlers.onAudioOutStart = self.onAudioOutStart
+        self.audioEventHandlers.onAudioOutEnd = self.onAudioOutEnd
+        self.audioEventHandlers.onListening = self.onListening
+        self.audioEventHandlers.onSpeaking = self.onSpeaking
         Task {
             VeConfig.vePrint("VECONVO: Setting up conversation websocket connection")
             do {
+                audio = await VeAudio(eventHandlers: self.audioEventHandlers)
                 try await genReply.start(onMessage: self.genReplyMessageReceived)
+                print("VECONVO: finished our await stuff")
             } catch {
                 VeConfig.vePrint("VECONVO: Error starting conversation websocket connection: \(error)")
-                emitEvent(.error, "Error starting conversation websocket connection: \(error.localizedDescription)")
+                eventHandlers.error(error: "Error starting conversation websocket connection: \(error.localizedDescription)")
             }
-            emitEvent(.websocketSetup, nil)
             VeConfig.vePrint("VECONVO: Websockets configured, session started")
+            eventHandlers.loadingFinished()
+            self.start()
         }
     }
 
     func start() {
         genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.setupForm, data: form)
         VeConfig.vePrint("VECONVO: Starting conversation")
-        let initialQuestion: String = getFieldQuestion(fieldName: currentFieldName)
-        VeConfig.vePrint("VECONVO: Initial question: \(initialQuestion)")
-        emitEvent(.audioOutMessage, initialQuestion)
         let field = form.fields.first(where: { $0.name == currentFieldName })
-        if field?.type == .info {
+        guard let field = field else {
+            VeConfig.vePrint("VECONVO: Error, field \(currentFieldName) not found")
+            return
+        }
+        let initialQuestion: String = getFieldQuestion(field: field, fieldState: fieldState[currentFieldName]!)
+        VeConfig.vePrint("VECONVO: Initial question: \(initialQuestion)")
+        audio.output(initialQuestion)
+        if field.type == .info {
             fieldState[currentFieldName]?.valid = true
             moveToNextField()
         }
@@ -63,117 +81,118 @@ class VeConversation {
 
     func stop() {
         genReply.tewyWebsockets?.closeConnection()
+        audio.stop()
     }
-    // FINISH VEAUDIO MOVE IN
-    // BUILD OUR INTERNAL VECONVERSATION EVENT LOOP
-    // BUILD EVENT EXPOSURE IN VEFORM AND ALLOW IT TO CANCEL VECONVO DEFAULT HANDLERS
-    func inputReceived(input: String) {
+
+    func onAudioInStart() {
+        eventHandlers?.audioInStart()
+    }
+    
+    func onAudioInChunk(_ data: String) {
+       eventHandlers?.audioInChunk(data)
+    }
+    
+    func onAudioInEnd(_ data: String) {
+        eventHandlers?.audioInEnd(data)
+        // consumer intercepted event
         fieldState[currentFieldName]?.valid = false
         let field = form.fields.first(where: { $0.name == currentFieldName })
         guard let field = field else {
             VeConfig.vePrint("VECONVO: Error, field \(currentFieldName) not found")
             return
         }
-
-        let rulesValidation = RulesValidation(input: input, field: field)
+        let rulesValidation = RulesValidation(input: data, field: field)
         switch field.type {
-        case .yesNo:
-            let yesNoReply = rulesValidation.validateYesNo()
-            fieldState[currentFieldName]?.validYes = yesNoReply.answer == .yes ? true : false
-            fieldState[currentFieldName]?.validNo = yesNoReply.answer == .no ? true : false
-            fieldState[currentFieldName]?.valid = yesNoReply.valid
-        case .select:
-            let selectReply = rulesValidation.validateSelect()
-            fieldState[currentFieldName]?.valid = selectReply.valid
-            fieldState[currentFieldName]?.selectOption = selectReply.selectOption ?? nil
-        case .multiselect:
-            let multiselectReply = rulesValidation.validateMultiselect()
-            fieldState[currentFieldName]?.valid = multiselectReply.valid
-            fieldState[currentFieldName]?.selectOptions = multiselectReply.selectOptions ?? nil
-        case .number:
-            let numberReply = rulesValidation.validateNumber()
-            fieldState[currentFieldName]?.valid = numberReply.valid
-            fieldState[currentFieldName]?.number = numberReply.number
-        case .textarea:
-            fieldState[currentFieldName]?.textarea = input
-        default:
-            VeConfig.vePrint("VECONVO: Error, unknown field type \(field.name))")
+            case .yesNo:
+                let yesNoReply = rulesValidation.validateYesNo()
+                fieldState[currentFieldName]?.validYes = yesNoReply.answer == .yes ? true : false
+                fieldState[currentFieldName]?.validNo = yesNoReply.answer == .no ? true : false
+                fieldState[currentFieldName]?.valid = yesNoReply.valid
+            case .select:
+                let selectReply = rulesValidation.validateSelect()
+                fieldState[currentFieldName]?.valid = selectReply.valid
+                fieldState[currentFieldName]?.selectOption = selectReply.selectOption ?? nil
+            case .multiselect:
+                let multiselectReply = rulesValidation.validateMultiselect()
+                fieldState[currentFieldName]?.valid = multiselectReply.valid
+                fieldState[currentFieldName]?.selectOptions = multiselectReply.selectOptions ?? nil
+            case .number:
+                let numberReply = rulesValidation.validateNumber()
+                fieldState[currentFieldName]?.valid = numberReply.valid
+                fieldState[currentFieldName]?.number = numberReply.number
+            case .textarea:
+                fieldState[currentFieldName]?.textarea = data
+            default:
+                VeConfig.vePrint("VECONVO: Error, unknown field type \(field.name))")
         }
-         
-        addCurrentFieldToFieldHistory(input: input, genReply: nil)
-
+        addCurrentFieldToFieldHistory(input: data, genReply: nil)
         if fieldState[currentFieldName]?.valid == true {
             let nextOutput = getResponseOutput(field: field, fieldState: fieldState[currentFieldName]!)
-            emitEvent(.audioOutMessage, nextOutput)
+            audio.output(nextOutput)
             moveToNextField()
             return
         }
-
-        emitEvent(.pauseListening, nil)
+        audio.pauseListening()
+        let nextOutput = outputsThinking.randomElement() ?? ""
+        audio.output(nextOutput)
         fieldState[currentFieldName]?.hotPhraseSkipResolved = false
         fieldState[currentFieldName]?.hotPhraseLastResolved = false
         fieldState[currentFieldName]?.hotPhraseEndResolved = false
         fieldState[currentFieldName]?.hotPhraseMoveToResolved = false
-        genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.hotPhraseRequest, data: HotPhraseRequest(fieldName: currentFieldName, question: field.question, input: input))
-        let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
+        genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.hotPhraseRequest, data: HotPhraseRequest(fieldName: currentFieldName, question: field.question, input: data))
         print("VECONVO CHECKING GEN START, \(field.validation.validate) \(field.type)")
         if field.validation.validate == true || field.type != .textarea {
             fieldState[currentFieldName]?.genReplyRunning = true
+            let fieldHistory = fieldHistory.filter { $0.name == currentFieldName }
             genReply.sendMessage(type: CLIENT_TO_SERVER_MESSAGES.genReplyRequest, data: GenReplyRequest(fieldName: currentFieldName, fieldHistory: fieldHistory))
         }
-        // output thinking message to cover time before responses come back
-        let nextOutput = outputsThinking.randomElement() ?? ""
-        emitEvent(.audioOutMessage, nextOutput)
     }
-
-    private func moveToNextField(input: String? = nil, noVisit: Bool = false, traversing: Bool = false) {
-        if fieldState[currentFieldName]?.valid == true || fieldState[currentFieldName]?
-            .skip == true || fieldState[currentFieldName]?.last == true || fieldState[currentFieldName]?
-            .end == true || fieldState[currentFieldName]?.moveToName != nil
-        {
-            guard let nextField = getNextField(fieldName: currentFieldName) else {
-                endForm()
-                return
-            }
-
-            if !noVisit {
-                addCurrentFieldToVisitHistory()
-                addCurrentFieldToFieldHistory(input: input, genReply: nil)
-                fieldState[currentFieldName]?.visitCount += 1
-            }
-            let field = form.fields.first(where: { $0.name == nextField.name })
-            guard let field = field else {
-                VeConfig.vePrint("VECONVO: Error, tried to move to fieldId \(nextField.name) but it doesn't exist")
-                return
-            }
-            VeConfig.vePrint("VECONVO: Moving to fieldName: \(nextField.name) \(field.question)")
-            fieldState[currentFieldName]?.skip = false
-            fieldState[currentFieldName]?.last = false
-            fieldState[currentFieldName]?.end = false
-            fieldState[currentFieldName]?.moveToName = nil
-            currentFieldName = nextField.name
-            if fieldState[nextField.name]?.valid == true, traversing == true {
-                return moveToNextField(noVisit: true, traversing: true)
-            }
-            // we gotta dispatch rest of events, events for the most part are gonna be for
-            // consumers to hook into rather than for us to handle
-            emitEvent(.fieldChanged, currentFieldName)
-            let nextQuestion = getFieldQuestion(fieldName: nextField.name)
-            emitEvent(.audioOutMessage, nextQuestion)
-            if field.type == .info {
-                fieldState[nextField.name]?.valid = true
-                moveToNextField()
-            }
-        } else {
-            VeConfig.vePrint("VECONVO: moveToNextField called with invalid field: \(currentFieldName)")
-        }
+    func onAudioOutStart(_ data: String) -> Bool? {
+        return eventHandlers?.audioOutStart(data)
     }
-
-    private func getNextField(fieldName: String) -> Field? {
-        if let fieldState = fieldState[fieldName] {
-            return getNextFieldFromFieldState(currentFieldState: fieldState, form: form, visitHistory: visitHistory)
+    func onAudioOutEnd() -> Void {
+        eventHandlers?.audioOutEnd()
+    }
+    func onListening() {
+        eventHandlers?.listening()
+    }
+    func onSpeaking() {
+        eventHandlers?.speaking()
+    }
+  
+    private func moveToNextField(noVisit: Bool = false, traversing: Bool = false) {
+        let currentFieldState = fieldState[currentFieldName]!
+        if !noVisit {
+            addCurrentFieldToVisitHistory()
+            addCurrentFieldToFieldHistory(input: nil, genReply: nil)
+            fieldState[currentFieldName]?.visitCount += 1
         }
-        return nil
+        guard let nextField = getNextFieldFromFieldState(currentFieldState: currentFieldState, form: form, visitHistory: visitHistory) else {
+            endForm()
+            return
+        }
+        fieldState[currentFieldName]?.skip = false
+        fieldState[currentFieldName]?.last = false
+        fieldState[currentFieldName]?.end = false
+        fieldState[currentFieldName]?.moveToName = nil
+        currentFieldName = nextField.name
+        if fieldState[nextField.name]?.valid == true, traversing == true {
+            return moveToNextField(noVisit: true, traversing: true)
+        }
+        let previousFieldState = fieldStateToConversationState(fieldState: currentFieldState)
+        let nextFieldState = fieldStateToConversationState(fieldState: fieldState[nextField.name]!)
+        guard let previousFieldState = previousFieldState, let nextFieldState = nextFieldState else {
+            VeConfig.vePrint("Could not find fields to mvoe between \(currentFieldState.name) \(nextField.name)")
+            return
+        }
+        let clientBlock = eventHandlers?.fieldChanged(previous:previousFieldState, next:nextFieldState)
+        if clientBlock == true { return }
+        let nextQuestion = getFieldQuestion(field: nextField, fieldState: fieldState[nextField.name]!)
+        audio.output(nextQuestion)
+        if nextField.type == .info {
+            fieldState[nextField.name]?.valid = true
+            moveToNextField()
+        }
     }
 
     private func allHotPhrasesResolved(fieldState: FieldState) -> Bool {
@@ -222,7 +241,7 @@ class VeConversation {
 
         if message.type == SERVER_TO_CLIENT_MESSAGES.genReplyChunk {
             VeConfig.vePrint("VECONVO: Outputting Gen sentence: \(message.data ?? "No data")")
-            emitEvent(.audioOutMessage, message.data ?? "")
+            audio.output(message.data ?? "")
             isProcessingGenReply = false
             processNextGenReplyMessage()
             return
@@ -230,6 +249,8 @@ class VeConversation {
 
         let newState = updateStateFromMessage(message: message, field: field, fieldState: state)
         fieldState[message.fieldName ?? ""] = newState
+        print("VECONVO: State after genREply updates: \(newState)")
+        print("VECONVO: testing allHotPhrasesResolved: \(allHotPhrasesResolved(fieldState: newState))")
         // field in a state where we can move on
         if newState.skip == true, 
         newState.last == true, 
@@ -237,8 +258,8 @@ class VeConversation {
         newState.moveToName != nil ||
         (allHotPhrasesResolved(fieldState: newState) && newState.valid == true) {
             let output = message.data ?? getResponseOutput(field: field, fieldState: fieldState[currentFieldName]!)
-            emitEvent(.audioOutMessage, output)
-            emitEvent(.resumeListening, nil)
+            audio.output(output)
+            audio.resumeListening()
             moveToNextField()
             isProcessingGenReply = false
             processNextGenReplyMessage()
@@ -288,18 +309,18 @@ class VeConversation {
         return form.fields.first(where: { $0.name == currentFieldName })
     }
 
-    func getFieldStateEntry(name: String) -> ConversationStateEntry? {
-        let field = form.fields.first(where: { $0.name == name })
+    func fieldStateToConversationState(fieldState: FieldState) -> ConversationStateEntry? {
+        let field = form.fields.first(where: { $0.name == fieldState.name })
         guard let field = field else {
             return nil
         }
-        let answer = getAnswerFromFieldState(fieldState: fieldState[name]!, field: field)
+        let answer = getAnswerFromFieldState(fieldState: fieldState, field: field)
         return ConversationStateEntry(
-            name: name,
+            name: fieldState.name,
             question: field.question,
             answer: answer,
             type: field.type,
-            valid: fieldState[name]?.valid ?? false
+            valid: fieldState.valid ?? false
         )
     }
 
@@ -313,7 +334,7 @@ class VeConversation {
             return
         }
         let completeEntries = buildCompletedConversation()
-        onComplete(completeEntries)
+        eventHandlers?.complete(conversationState: completeEntries)
     }
 
     private func moveToAnyIncompleteField(root: String?) -> Bool? {
@@ -322,12 +343,13 @@ class VeConversation {
         while let currentField = fieldName {
             if fieldState[currentField]?.valid == false {
                 currentFieldName = previousFieldName ?? currentFieldName
-                emitEvent(.audioOutMessage, "Looks like we have a required question we need to revisit")
+                audio.output("Looks like we have a required question we need to revisit")
                 moveToNextField(noVisit: true, traversing: true)
                 return true
             }
             previousFieldName = currentField
-            fieldName = getNextField(fieldName: currentField)?.name
+            let nextField = getNextFieldFromFieldState(currentFieldState: fieldState[currentField]!, form: form, visitHistory: visitHistory)
+            fieldName = nextField?.name
         }
         return nil
     }
@@ -348,7 +370,9 @@ class VeConversation {
                     valid: true
                 ))
             }
-            fieldName = getNextField(fieldName: currentField)?.name
+            let nextField = getNextFieldFromFieldState(currentFieldState: fieldState[currentField]!, form: form, visitHistory: visitHistory)
+            fieldName = nextField?.name
+
         }
         return completeEntries
     }
