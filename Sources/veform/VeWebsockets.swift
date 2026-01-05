@@ -18,6 +18,8 @@ enum SERVER_TO_CLIENT_MESSAGES: String, Codable {
     case hotPhraseLast = "HOT_PHRASE_LAST"
     case hotPhraseEnd = "HOT_PHRASE_END"
     case hotPhraseMoveTo = "HOT_PHRASE_MOVE_TO"
+    case hotPhraseIrrelevant = "HOT_PHRASE_IRRELEVANT"
+    case hotPhraseRelevantQuestion = "HOT_PHRASE_RELEVANT_QUESTION"
     case interrupt = "INTERRUPT"
     case error = "ERROR"
 }

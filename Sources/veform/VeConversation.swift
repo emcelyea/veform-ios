@@ -25,8 +25,7 @@ class VeConversation {
         form: Form,
         eventHandlers: VeformEventHandlers
     ) {
-        // NEXT TIME CLEAR UP THESE AUDIO EVENT HANDLER PASSINGS UR ALL CONFUSED AND 
-        // STUPID LOL
+
         print("VECONVO: Initializing conversation")
         self.form = form
         self.eventHandlers = eventHandlers
@@ -246,15 +245,21 @@ class VeConversation {
             processNextGenReplyMessage()
             return
         }
-
         let newState = updateStateFromMessage(message: message, field: field, fieldState: state)
         fieldState[message.fieldName ?? ""] = newState
         print("VECONVO: State after genREply updates: \(newState)")
         print("VECONVO: testing allHotPhrasesResolved: \(allHotPhrasesResolved(fieldState: newState))")
+        // this is like a giga race condition but I will respolve after we do our audio piping rework
+        if newState.irrelevant == true, newState.relevantQuestion == true {
+            audio.output(message.data ?? "")
+            isProcessingGenReply = false
+            processNextGenReplyMessage()
+            return
+        }
         // field in a state where we can move on
         if newState.skip == true, 
         newState.last == true, 
-        newState.end == true, 
+        newState.end == true,
         newState.moveToName != nil ||
         (allHotPhrasesResolved(fieldState: newState) && newState.valid == true) {
             let output = message.data ?? getResponseOutput(field: field, fieldState: fieldState[currentFieldName]!)
