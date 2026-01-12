@@ -38,74 +38,51 @@ public class Veform {
     public func stop() {
         conversation?.stop()
     }
-
-//    public func pauseOutput() {
-//        audio?.pauseOutput()
+    // this will immediately cut current output & input, then output question for this field
+//    public func setCurrentField(name: String) {
+//        conversation?.setCurrentField(name: name)
 //    }
-//
-//    public func resumeOutput() {
-//        audio?.resumeOutput()
-//    }
-//
-//    public func pauseListening() {
-//        audio?.pauseListening()
-//    }
-//
-//    public func resumeListening() {
-//        audio?.resumeListening()
-//    }
-
-    public func setCurrentField(name: String) {
-        conversation?.setCurrentField(name: name)
-    }
-
-//    public func getConversationState() -> ConversationState {
-//        return conversation.getConversationState()
-//    }
-
-    public func setFieldState(name: String, state: ConversationStateEntry) {
-        conversation.setFieldState(name: name, state: state)
-    }
-    
+    // public func setFieldState(name: String, state: ConversationStateEntry) {
+    //     conversation.setFieldState(name: name, state: state)
+    // }
     public func onLoadingStarted(callback: @escaping () -> Void) {
         eventHandlers.onLoadingStarted = callback
     }
-
     public func onLoadingFinished(callback: @escaping () -> Void) {
         eventHandlers.onLoadingFinished = callback
     }
-
     public func onRunningStarted(callback: @escaping () -> Void) {
         eventHandlers.onRunningStarted = callback
     }
-
     public func onRunningFinished(callback: @escaping () -> Void) {
         eventHandlers.onRunningFinished = callback
     }
-
     public func onAudioInStart(callback: @escaping () -> Void) {
         eventHandlers.onAudioInStart = callback
     }
     public func onAudioInChunk(callback: @escaping (String) -> Void) {
         eventHandlers.onAudioInChunk = callback
     }
-    public func onAudioInEnd(callback: @escaping (String) -> Void) {
+    // blocking this will prevent conversation replying, validation and moving to the next field
+    public func onAudioInEnd(callback: @escaping (String) -> Bool?) {
         eventHandlers.onAudioInEnd = callback
     }
+    // blocking this will prevent conversation replying
     public func onAudioOutStart(callback: @escaping (String) -> Bool?) {
         eventHandlers.onAudioOutStart = callback
     }
     public func onAudioOutEnd(callback: @escaping () -> Void) {
         eventHandlers.onAudioOutEnd = callback
     }
+    // blocking this will prevent moving to another field
+    public func onFieldChanged(callback: @escaping (_ previous: ConversationStateEntry, _ next: ConversationStateEntry) -> Bool?) {
+        eventHandlers.onFieldChanged = callback
+    }
     public func onListening(callback: @escaping () -> Void) {
         eventHandlers.onListening = callback
     }
     public func onSpeaking(callback: @escaping () -> Void) {
         eventHandlers.onSpeaking = callback
-    }
-    public func onFieldChanged(callback: @escaping (_ previous: ConversationStateEntry, _ next: ConversationStateEntry) -> Bool?) {
-        eventHandlers.onFieldChanged = callback
     }
     public func onComplete(callback: @escaping (ConversationState) -> Void) {
         eventHandlers.onComplete = callback
@@ -123,12 +100,12 @@ public class VeformEventHandlers {
     var onRunningFinished: (() -> Void)?
     var onAudioInStart: (() -> Void)?
     var onAudioInChunk: ((String) -> Void)?
-    var onAudioInEnd: ((String) -> Void)?
+    var onAudioInEnd: ((String) -> Bool?)?
     var onAudioOutStart: ((String) -> Bool?)?
+    var onFieldChanged: ((_ previous: ConversationStateEntry, _ next: ConversationStateEntry) -> Bool?)?
     var onAudioOutEnd: (() -> Void)?
     var onListening: (() -> Void)?
     var onSpeaking: (() -> Void)?
-    var onFieldChanged: ((_ previous: ConversationStateEntry, _ next: ConversationStateEntry) -> Bool?)?
     var onError: ((String) -> Void)?
     var onComplete: ((ConversationState) -> Void)?
     
@@ -180,19 +157,16 @@ public class VeformEventHandlers {
         }
     }
     
-    func audioInEnd(_ data: String) -> Void {
+    func audioInEnd(_ data: String) -> Bool? {
         if let handler = onAudioInEnd {
-            DispatchQueue.main.async {
-                handler(data)
-            }
+            return handler(data)
         }
+        return false
     }
     
     func audioOutStart(_ data: String) -> Bool? {
         if let handler = onAudioOutStart {
-            DispatchQueue.main.sync {
-                return handler(data)
-            }
+            return handler(data)
         }
         return false
     }

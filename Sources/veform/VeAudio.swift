@@ -16,6 +16,7 @@ class VeAudio: NSObject {
     private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
     private var recognitionTask: SFSpeechRecognitionTask?
     private let speechRecognizer: SFSpeechRecognizer?
+    private var audioPlayer: AVAudioPlayer?
     private let synthesizer = AVSpeechSynthesizer()
     private var silenceTimer: Timer?
     private var silenceTimeout: TimeInterval = 2
@@ -46,18 +47,6 @@ class VeAudio: NSObject {
                     code: 1,
                     userInfo: [NSLocalizedDescriptionKey: "Speech recognition permissions denied"]
                 )
-            }
-            let betterVoices = AVSpeechSynthesisVoice.speechVoices().filter {
-                $0.quality == .enhanced || $0.quality == .premium
-            }
-            if betterVoices.count > 0 {
-                if betterVoices.contains(where: { $0.name == "Karen" }) {
-                    preferredVoice = betterVoices.first(where: { $0.name == "Karen" })
-                } else if betterVoices.contains(where: { $0.name == "Samantha" }) {
-                    preferredVoice = betterVoices.first(where: { $0.name == "Samantha" })
-                } else {
-                    preferredVoice = betterVoices[0]
-                }
             }
             configureAudioSession()
             startListening()
@@ -201,6 +190,30 @@ class VeAudio: NSObject {
         synthesizer.speak(utterance)
     }
 
+    func outputBuffer(_ mp3Data: Data) throws {
+        print("VEAUDIO: Outputting buffer")
+    if isSpeakingOutput {
+        synthesizer.stopSpeaking(at: .immediate)
+    }
+    
+    do {
+        print("VEAUDIO: Trying to play MP3 from buffer")
+        audioPlayer = try AVAudioPlayer(data: mp3Data)
+        audioPlayer?.delegate = self
+                audioPlayer?.volume = 1.0
+        audioPlayer?.prepareToPlay()
+        
+        isSpeakingOutput = true
+        eventHandlers.speaking()
+        audioPlayer?.play()
+        
+        VeConfig.vePrint("VEAUDIO: Playing MP3 from buffer")
+    } catch {
+        VeConfig.vePrint("VEAUDIO: Failed to play MP3 buffer: \(error)")
+        throw error
+    }
+}
+
     func pauseOutput() {
         synthesizer.pauseSpeaking(at: .immediate)
         isSpeakingOutput = false
@@ -327,6 +340,27 @@ extension VeAudio: AVSpeechSynthesizerDelegate {
     func speechSynthesizer(_: AVSpeechSynthesizer, didCancel _: AVSpeechUtterance) {}
 }
 
+extension VeAudio: AVAudioPlayerDelegate {
+    func audioPlayerDidFinishPlaying(_ player: AVAudioPlayer, successfully flag: Bool) {
+        isSpeakingOutput = false
+        blockOutput = false
+        eventHandlers.audioOutEnd()
+        VeConfig.vePrint("VEAUDIO: MP3 playback finished")
+        
+        if stopAfterOutput {
+            stopOutput()
+            try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
+        } else if !isPausedListening {
+            eventHandlers.listening()
+        }
+    }
+    
+    func audioPlayerDecodeErrorDidOccur(_ player: AVAudioPlayer, error: Error?) {
+        VeConfig.vePrint("VEAUDIO: MP3 decode error: \(error?.localizedDescription ?? "unknown")")
+        isSpeakingOutput = false
+        eventHandlers.audioOutEnd()
+    }
+}
 
 class VeAudioEventHandlers {
     var onAudioInStart: (() -> Void)?

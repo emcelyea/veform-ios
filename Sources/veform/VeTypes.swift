@@ -75,7 +75,8 @@ struct FieldHistory: Codable {
     var answer: String?
     var genReply: String?
 }
-
+// we dont need nearly this much shit because 
+// there isnt all the overhead from ws now
 struct FieldState {
     var name: String
     var valid: Bool
@@ -133,9 +134,6 @@ public enum FieldTypes: String, Codable {
 public struct Field: Codable {
     let name: String
     let type: FieldTypes
-    let root: Bool
-    // let validation: FieldValidation
-    // let eventConfig: FieldEventConfig
     let question: String
     var eventConfig: FieldEventConfig
     public var validation: FieldValidation
@@ -183,7 +181,6 @@ public struct Field: Codable {
     ) {
         self.name = name
         self.type = type
-        self.root = root
         self.question = question
         self.eventConfig = FieldEventConfig()
         self.validation = FieldValidation()

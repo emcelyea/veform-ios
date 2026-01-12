@@ -6,28 +6,21 @@ protocol TewyWebsocketsDelegate: AnyObject {
     func webSocketDidDisconnect(_ webSocket: VeWebsockets)
     func webSocket(_ webSocket: VeWebsockets, didReceiveMessage message: WebSocketServerMessage)
     func webSocket(_ webSocket: VeWebsockets, didEncounterError error: Error)
+    func webSocket(_ webSocket: VeWebsockets, didReceiveAudioBuffer buffer: Data)
 }
 
 enum SERVER_TO_CLIENT_MESSAGES: String, Codable {
     case sessionId = "SESSION_ID"
-    case sessionNotFound = "SESSION_NOT_FOUND"
-    case genReplyStart = "GEN_REPLY_START"
-    case genReplyChunk = "GEN_REPLY_CHUNK"
-    case genReplyEnd = "GEN_REPLY_END"
-    case hotPhraseSkip = "HOT_PHRASE_SKIP"
-    case hotPhraseLast = "HOT_PHRASE_LAST"
-    case hotPhraseEnd = "HOT_PHRASE_END"
-    case hotPhraseMoveTo = "HOT_PHRASE_MOVE_TO"
-    case hotPhraseIrrelevant = "HOT_PHRASE_IRRELEVANT"
-    case hotPhraseRelevantQuestion = "HOT_PHRASE_RELEVANT_QUESTION"
-    case interrupt = "INTERRUPT"
+    case nextMessageAudio = "NEXT_MESSAGE_AUDIO"
+    case fieldStateChanged = "FIELD_STATE_CHANGE"
+    case fieldChanged = "FIELD_CHANGED"
     case error = "ERROR"
 }
 
 public enum CLIENT_TO_SERVER_MESSAGES: String, Codable {
     case setupForm = "SETUP_FORM"
-    case genReplyRequest = "GEN_REPLY_REQUEST"
-    case hotPhraseRequest = "HOT_PHRASE_REQUEST"
+    case audioInput = "AUDIO_INPUT"
+    case changeField = "CHANGE_FIELD"
 }
 
 enum WebSocketState {
@@ -61,14 +54,14 @@ struct WebSocketServerMessage: Codable {
     let selectOptions: String?
 }
 
-let urlWs = "wss://0414b950a61a.ngrok-free.app"
+let urlWs = "wss://619b216cf070.ngrok-free.app"
 class VeWebsockets: ObservableObject {
     private var webSocketTask: URLSessionWebSocketTask?
     private var urlSession: URLSession?
     private let url: URL
     private var connectionCompletion: ((Result<Void, Error>) -> Void)?
     private var sessionIdCompletion: ((Result<String, Error>) -> Void)?  // ADD THIS
-
+    private var mode: String = "json"
     var state: WebSocketState = .disconnected
     var lastError: Error?
     weak var delegate: TewyWebsocketsDelegate?
@@ -160,7 +153,7 @@ class VeWebsockets: ObservableObject {
             VeConfig.vePrint("VEWEBSOCKETS: sendmessage while not connected: \(error)")
             return
         }
-        VeConfig.vePrint("VEWEBSOCKETS: Sending message: \(type) \(data)")
+        VeConfig.vePrint("VEWEBSOCKETS: Sending message: \(type)")
         do {
             let message = WebSocketClientMessage(type: type, sessionId: sessionId, data: data)
             let jsonData = try JSONEncoder().encode(message)
@@ -194,6 +187,15 @@ class VeWebsockets: ObservableObject {
     }
 
     private func handleMessage(_ message: URLSessionWebSocketTask.Message) {
+        VeConfig.vePrint("VEWEBSOCKETS: Handling message: mode: \(mode)")
+        if mode == "audio" {
+            if case let .data(audioData) = message {
+                delegate?.webSocket(self, didReceiveAudioBuffer: audioData)
+                mode = "json"
+                return
+            }
+            return
+        }
         switch message {
         case let .string(text):
             if state == .connecting {
@@ -203,7 +205,8 @@ class VeWebsockets: ObservableObject {
                 connectionCompletion = nil
             }
             do {
-                VeConfig.vePrint("VEWEBSOCKETS: RAW message: \(text)")
+                // NEXT TIME DEBUG THIS SHIT THE AUDIO BUFFERS GET SENT BUT NEVER
+                // ARRIVE WAT THE HELL
                 let serverMessage = try JSONDecoder().decode(WebSocketServerMessage.self, from: text.data(using: .utf8)!)
                 VeConfig.vePrint("VEWEBSOCKETS: Decoded message: \(serverMessage.type) valid:\(serverMessage.valid)")
                 if serverMessage.type == .sessionId {
@@ -215,16 +218,14 @@ class VeWebsockets: ObservableObject {
                     }
                     return
                 }
-                if serverMessage.type == .sessionNotFound {
-                    VeConfig.vePrint("VEWEBSOCKETS: Session not found \(serverMessage.data ?? "No data")")
+                if serverMessage.type == .nextMessageAudio {
+                    VeConfig.vePrint("VEWEBSOCKETS: WE GOT NEXT MESSAGE AUDIO")
+                    delegate?.webSocket(self, didReceiveMessage: serverMessage)
+                    mode = "audio"
                     return
                 }
                 if serverMessage.type == .error {
                     VeConfig.vePrint("VEWEBSOCKETS: Error: \(serverMessage.data ?? "No data")")
-                    return
-                }
-                if serverMessage.type == .interrupt {
-                    VeConfig.vePrint("VEWEBSOCKETS: Interrupt \(serverMessage.data ?? "No data")")
                     return
                 }
                 delegate?.webSocket(self, didReceiveMessage: serverMessage)

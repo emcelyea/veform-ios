@@ -13,12 +13,14 @@ class GenReply {
     private let punctuationCharacters = [".", "!", "?", ";"]
     private var genReplySentence: String = ""
     var onMessage: ((_ message: WebSocketServerMessage) -> Void)?
+    var onAudioBuffer: ((_ buffer: Data) -> Void)?
     init(form: Form) {
         self.form = form
     }
 
-    func start(onMessage: @escaping (_ message: WebSocketServerMessage) -> Void) async throws {
+    func start(onMessage: @escaping (_ message: WebSocketServerMessage) -> Void, onAudioBuffer: @escaping (_ buffer: Data) -> Void) async throws {
         self.onMessage = onMessage
+        self.onAudioBuffer = onAudioBuffer
         VeConfig.vePrint("GENREPLY: Starting gen reply websocket connection")
         self.tewyWebsockets = VeWebsockets()
         self.tewyWebsockets?.delegate = self
@@ -30,23 +32,12 @@ class GenReply {
 
     func handleMessage(message: WebSocketServerMessage) {
         VeConfig.vePrint("GENREPLY: Handling message: \(message.type) \(message.data ?? "")")
+        onMessage?(message)
+    }
 
-        if message.type == .genReplyChunk {
-             if let lastChar = message.data?.last,
-               punctuationCharacters.contains(String(lastChar))
-            {
-                genReplySentence += message.data ?? ""
-                var parentMessage = message
-                parentMessage.data = genReplySentence
-                onMessage?(parentMessage)
-                genReplySentence = ""
-            } else {
-                genReplySentence += message.data ?? ""
-            }
-        }
-        if message.type == .genReplyStart || message.type == .hotPhraseSkip || message.type == .hotPhraseLast || message.type == .hotPhraseEnd || message.type == .hotPhraseMoveTo || message.type == .genReplyEnd {
-            onMessage?(message)
-        }
+    func handleAudioBuffer(buffer: Data) {
+        VeConfig.vePrint("GENREPLY: WE GOT AUDIO BUFFER")
+        onAudioBuffer?(buffer)
     }
 
    func sendMessage<T: Codable>(type: CLIENT_TO_SERVER_MESSAGES, data: T) -> Void {
@@ -69,5 +60,10 @@ extension GenReply: TewyWebsocketsDelegate {
 
     func webSocket(_: VeWebsockets, didEncounterError error: Error) {
         VeConfig.vePrint("GENREPLY: Error: \(error)")
+    }
+
+    func webSocket(_: VeWebsockets, didReceiveAudioBuffer buffer: Data) {
+        VeConfig.vePrint("GENREPLY: Received audio buffer)")
+        handleAudioBuffer(buffer: buffer)
     }
 }
