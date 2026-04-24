@@ -155,11 +155,6 @@ public struct Field: Codable {
     }
 
     @discardableResult
-    mutating public func addSelectSubject(subject: String){
-        self.validation.selectSubject = subject
-    }
-
-    @discardableResult
     mutating public func addSelectOptionBehavior(value: String, behavior: FieldBehavior) {
         let optionIndex = self.validation.selectOptions?.firstIndex(where: { $0.value == value })
         if let optionIndex = optionIndex {
@@ -190,7 +185,6 @@ public struct Field: Codable {
 public struct FieldValidation: Codable {
     public var validate: Bool?
     var selectOptions: [SelectOption]?
-    var selectSubject: String?
     public var maxCharacters: Int?
     public var minCharacters: Int?
     public var minValue: Double?
@@ -200,7 +194,6 @@ public struct FieldValidation: Codable {
     init(
         validate: Bool? = true,
         selectOptions: [SelectOption]? = nil,
-        selectSubject: String? = nil,
         maxCharacters: Int? = nil,
         minCharacters: Int? = nil,
         minValue: Double? = nil,
@@ -210,7 +203,6 @@ public struct FieldValidation: Codable {
     ) { 
         self.validate = validate
         self.selectOptions = selectOptions
-        self.selectSubject = selectSubject
         self.maxCharacters = maxCharacters
         self.minCharacters = minCharacters
         self.minValue = minValue
